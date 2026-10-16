@@ -30,6 +30,7 @@ namespace PwX.BuildHost
             string workDir = null;
             try
             {
+                ConfigureModulePath();
                 workDir = Path.Combine(Path.GetTempPath(), "pwx-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(workDir);
                 string scriptPath = Path.Combine(workDir, "payload.ps1");
@@ -64,6 +65,42 @@ namespace PwX.BuildHost
             }
         }
 
+        private static void ConfigureModulePath()
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                List<string> candidatePaths = new List<string>();
+
+                string mod1 = Path.Combine(baseDir, "Modules");
+                if (Directory.Exists(mod1)) candidatePaths.Add(mod1);
+
+                string mod2 = Path.Combine(baseDir, "runtimes", "win", "lib", "net8.0", "Modules");
+                if (Directory.Exists(mod2)) candidatePaths.Add(mod2);
+
+                string current = Environment.GetEnvironmentVariable("PSModulePath");
+                if (!string.IsNullOrEmpty(current))
+                {
+                    foreach (string part in current.Split(Path.PathSeparator))
+                    {
+                        if (string.IsNullOrWhiteSpace(part)) continue;
+                        // Windows PowerShell 5.1 (Desktop) modulleri PS7 Core ile uyumsuzdur
+                        if (part.IndexOf("WindowsPowerShell", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                        if (!candidatePaths.Exists(p => string.Equals(p, part, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            candidatePaths.Add(part);
+                        }
+                    }
+                }
+
+                if (candidatePaths.Count > 0)
+                {
+                    Environment.SetEnvironmentVariable("PSModulePath", string.Join(Path.PathSeparator.ToString(), candidatePaths));
+                }
+            }
+            catch { /* en iyi gayret */ }
+        }
+
 #if !PWX_GUI
         // Konsol modu: pwsh -File davranisi (parametreler, stdout/stderr, cikis kodu)
         private static int RunConsole(string scriptPath, string[] userArgs)
@@ -78,7 +115,9 @@ namespace PwX.BuildHost
             psArgs[4] = "-File";
             psArgs[5] = scriptPath;
             Array.Copy(userArgs, 0, psArgs, 6, userArgs.Length);
-            return Microsoft.PowerShell.ConsoleShell.Start(string.Empty, string.Empty, psArgs);
+            InitialSessionState iss = InitialSessionState.CreateDefault2();
+            iss.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
+            return Microsoft.PowerShell.ConsoleShell.Start(iss, string.Empty, string.Empty, psArgs);
         }
 #endif
 

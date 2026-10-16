@@ -1,14 +1,20 @@
-﻿name: pwxe CI
+name: pwxe CI
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  smoke-tests:
+  module-tests:
+    name: Module tests (Windows PowerShell 5.1)
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +23,51 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Run pwxe Smoke Test Suite
+      - name: Run module tests (manifest, exports, Invoke-Pwxe PS51 + PS7)
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Module.ps1
+
+  host-logic:
+    name: PS7 GUI host logic
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run GUI host logic unit tests
+        shell: pwsh
+        run: .\tests\Test-GuiHostLogic.ps1
+
+  smoke:
+    name: Smoke tests (${{ matrix.variant }})
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ folder, single-file ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run smoke test suite (PS51 + PS7 + PS7-GUI)
         shell: powershell
         run: |
-          powershell.exe -ExecutionPolicy Bypass -File .\tests\Run-Smoke.ps1
+          if ('${{ matrix.variant }}' -eq 'single-file') {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Smoke.ps1 -Target All -SingleFile
+          } else {
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Run-Smoke.ps1 -Target All
+          }
+          exit $LASTEXITCODE
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwxe-logs-${{ matrix.variant }}
+          path: artifacts/logs/*.log
+          if-no-files-found: ignore

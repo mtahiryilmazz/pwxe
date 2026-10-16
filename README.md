@@ -1,4 +1,4 @@
-﻿# pwxe — PwX Build Engine & CLI
+# pwxe — PwX Build Engine & CLI
 
 <p align="center">
   <strong>Modern, ultra-fast and standalone PowerShell script to EXE build engine.</strong><br>
@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.0-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.0.1-blue.svg?style=flat-square" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=flat-square" alt="Platform: Windows">
   <img src="https://img.shields.io/badge/PowerShell-5.1%20%7C%207.4%2B-5391FE.svg?style=flat-square" alt="PowerShell 5.1 & 7.4+">
@@ -99,10 +99,19 @@ If you prefer a modern, full-featured desktop GUI with built-in online icon sear
 
 ## 🧪 Testing
 
-Run the automated smoke test suite locally:
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\tests\Run-Smoke.ps1
-```
+[![pwxe CI](https://github.com/mtahiryilmazz/pwxe/actions/workflows/ci.yml/badge.svg)](https://github.com/mtahiryilmazz/pwxe/actions/workflows/ci.yml)
+
+| Suite | Command | Covers |
+| :--- | :--- | :--- |
+| Module | `powershell.exe -ExecutionPolicy Bypass -File .\tests\Test-Module.ps1` | Manifest, exports, `Invoke-Pwxe` PS51 + PS7 end-to-end |
+| GUI host logic | `pwsh .\tests\Test-GuiHostLogic.ps1` | PS7 GUI host exit codes & argument binding |
+| Smoke | `powershell.exe -ExecutionPolicy Bypass -File .\tests\Run-Smoke.ps1 [-SingleFile]` | PS51, PS7 console, PS7 GUI executables |
+
+All suites run on every push via GitHub Actions as separate checks.
+
+## 🗺️ Roadmap
+
+See our planned milestones, security signing, and cross-platform goals in [ROADMAP.md](ROADMAP.md).
 
 ---
 

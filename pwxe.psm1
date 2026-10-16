@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
     .SYNOPSIS
         pwxe - Modern, ultra-hizli ve bagimsiz PowerShell'den EXE'ye donusturme motoru (PwX Build Engine).
@@ -34,7 +34,7 @@ function Invoke-Pwxe {
         [string]$Runtime = 'SelfContained',
 
         [Parameter()]
-        [ValidateSet('win-x64', 'win-x86', 'win-arm64')]
+        [ValidateSet('win-x64', 'win-arm64')]
         [string]$Architecture = 'win-x64',
 
         [Parameter()]
@@ -91,7 +91,7 @@ function Invoke-Pwxe {
         if ($ProductVersion) { $bArgs.ProductVersion = $ProductVersion }
 
         if ($Target -eq 'PS7') {
-            $bArgs.Runtime = $Runtime
+            $bArgs.RuntimeMode = $Runtime
             $bArgs.Architecture = $Architecture
             if ($SingleFile.IsPresent) { $bArgs.SingleFile = $true }
         }

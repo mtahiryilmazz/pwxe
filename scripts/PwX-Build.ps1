@@ -206,6 +206,16 @@ try {
         $built = Join-Path $pub 'PwXApp.exe'
         if (-not (Test-Path -LiteralPath $built)) { Stop-Build 'PWX3004' 'Yayın çıktısında PwXApp.exe bulunamadı.' }
 
+        # PowerShell SDK Core yerleşik modüllerini ($PSHOME\Modules) yayın çıktısına yerleştir
+        $runtimesMod = Join-Path $pub "runtimes\win\lib\$Framework\Modules"
+        if (-not (Test-Path -LiteralPath $runtimesMod)) {
+            $runtimesMod = Join-Path $pub "runtimes\win\lib\net8.0\Modules"
+        }
+        $targetMod = Join-Path $pub 'Modules'
+        if ((Test-Path -LiteralPath $runtimesMod) -and -not (Test-Path -LiteralPath $targetMod)) {
+            Copy-Item -LiteralPath $runtimesMod -Destination $targetMod -Recurse -Force
+        }
+
         if ($SingleFile) {
             Copy-Item -LiteralPath $built -Destination $Output -Force
         }
