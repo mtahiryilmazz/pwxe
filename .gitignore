@@ -1,0 +1,13 @@
+﻿# Visual Studio & .NET
+[Bb]in/
+[Oo]bj/
+artifacts/
+*.log
+*.tmp
+pwx_icon_*.ico
+PwX_IconPatched_*.ps1
+
+# Windows
+Thumbs.db
+Desktop.ini
+.DS_Store

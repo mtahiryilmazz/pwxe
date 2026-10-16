@@ -1,0 +1,118 @@
+﻿#Requires -Version 5.1
+<#
+    .SYNOPSIS
+        pwxe - Modern, ultra-hizli ve bagimsiz PowerShell'den EXE'ye donusturme motoru (PwX Build Engine).
+    .DESCRIPTION
+        PowerShell 5.1 (dahili csc.exe) ve PowerShell 7.4+ (.NET 8 SDK) calisma zamanlarini destekleyen,
+        sifir dis bagimlilikla calisan CLI derleme araci ve PowerShell modulu.
+#>
+
+$script:EngineBuildScript = Join-Path $PSScriptRoot 'scripts\PwX-Build.ps1'
+$script:EngineCheckScript = Join-Path $PSScriptRoot 'scripts\Check-Environment.ps1'
+
+function Invoke-Pwxe {
+    [CmdletBinding()]
+    [Alias('pwxe', 'New-PwxeExecutable')]
+    param(
+        [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Source,
+
+        [Parameter(Position = 1)]
+        [string]$Output,
+
+        [Parameter()]
+        [ValidateSet('PS51', 'PS7')]
+        [string]$Target = 'PS51',
+
+        [Parameter()]
+        [ValidateSet('Console', 'Gui')]
+        [string]$Mode = 'Console',
+
+        [Parameter()]
+        [ValidateSet('SelfContained', 'FrameworkDependent')]
+        [string]$Runtime = 'SelfContained',
+
+        [Parameter()]
+        [ValidateSet('win-x64', 'win-x86', 'win-arm64')]
+        [string]$Architecture = 'win-x64',
+
+        [Parameter()]
+        [switch]$SingleFile,
+
+        [Parameter()]
+        [string]$Icon,
+
+        [Parameter()]
+        [string]$Title,
+
+        [Parameter()]
+        [string]$Description,
+
+        [Parameter()]
+        [string]$CompanyName,
+
+        [Parameter()]
+        [string]$FileVersion = '1.0.0.0',
+
+        [Parameter()]
+        [string]$ProductVersion = '1.0.0.0',
+
+        [Parameter()]
+        [switch]$Force
+    )
+
+    process {
+        if (-not (Test-Path -LiteralPath $script:EngineBuildScript)) {
+            throw "pwxe derleme betigi bulunamadi: $script:EngineBuildScript"
+        }
+
+        $resolvedSource = (Resolve-Path -LiteralPath $Source).Path
+        $resolvedOutput = $Output
+        if (-not $resolvedOutput) {
+            $sourceDir = [System.IO.Path]::GetDirectoryName($resolvedSource)
+            $sourceBase = [System.IO.Path]::GetFileNameWithoutExtension($resolvedSource)
+            $resolvedOutput = Join-Path $sourceDir ($sourceBase + '.exe')
+        }
+
+        $bArgs = @{
+            Source = $resolvedSource
+            Output = [System.IO.Path]::GetFullPath($resolvedOutput)
+            Target = $Target
+            Mode   = $Mode
+            Force  = $Force.IsPresent
+        }
+
+        if ($Icon) { $bArgs.Icon = (Resolve-Path -LiteralPath $Icon).Path }
+        if ($Title) { $bArgs.ProductName = $Title }
+        if ($Description) { $bArgs.Description = $Description }
+        if ($CompanyName) { $bArgs.CompanyName = $CompanyName }
+        if ($FileVersion) { $bArgs.FileVersion = $FileVersion }
+        if ($ProductVersion) { $bArgs.ProductVersion = $ProductVersion }
+
+        if ($Target -eq 'PS7') {
+            $bArgs.Runtime = $Runtime
+            $bArgs.Architecture = $Architecture
+            if ($SingleFile.IsPresent) { $bArgs.SingleFile = $true }
+        }
+
+        & $script:EngineBuildScript @bArgs
+    }
+}
+
+function Test-PwxeEnvironment {
+    [CmdletBinding()]
+    param()
+
+    if (Test-Path -LiteralPath $script:EngineCheckScript) {
+        & $script:EngineCheckScript
+    } else {
+        [pscustomobject]@{
+            PSVersion = $PSVersionTable.PSVersion.ToString()
+            HasDotnet = [bool](Get-Command dotnet -ErrorAction SilentlyContinue)
+            EngineScript = $script:EngineBuildScript
+        }
+    }
+}
+
+Export-ModuleMember -Function 'Invoke-Pwxe', 'Test-PwxeEnvironment' -Alias 'pwxe', 'New-PwxeExecutable'
