@@ -170,6 +170,10 @@ try {
         # ------------------------------------------------ PowerShell 7 backend
         $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
         if (-not $dotnet) { Stop-Build 'PWX3001' '.NET SDK bulunamadı. scripts\Check-Environment.ps1 çalıştırın.' }
+        # 'dotnet' komutu yalnizca runtime ile de bulunur; PS7 hedefi icin gercek bir SDK (8+) gerekir.
+        $sdkList = @(& $dotnet.Source --list-sdks 2>$null | ForEach-Object { ($_ -split ' ')[0] })
+        $hasSdk8 = @($sdkList | Where-Object { $_ -match '^(\d+)\.' -and [int]$Matches[1] -ge 8 }).Count -gt 0
+        if (-not $hasSdk8) { Stop-Build 'PWX3004' '.NET SDK 8+ kurulu degil (yalnizca runtime bulundu). Kurulum: winget install Microsoft.DotNet.SDK.8' }
         $hostSrc = Join-Path $script:Root 'src\PwX.BuildHost.PS7'
         if (-not (Test-Path -LiteralPath $hostSrc)) { Stop-Build 'PWX3002' "Host projesi bulunamadı: $hostSrc" }
         $hostDir = Join-Path $workDir 'host'
