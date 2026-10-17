@@ -3,7 +3,7 @@
 .SYNOPSIS
   PwX Build Engine - PS2EXE'den bağımsız .ps1 -> .exe dönüştürücü (komut satırı).
 .DESCRIPTION
-  Kaynak betiği DERLEME SIRASINDA ÇALIŞTIRMAZ; yalnızca sözdizimini ayrıştırır.
+  Kaynak betiği DERLEME SIRASINDA ÇALIŞTIRMADAN; yalnızca sözdizimini ayrıştırır.
   PS7   : src\PwX.BuildHost.PS7 (PowerShell SDK host) -> dotnet publish
   PS51  : src\PwX.BuildHost.PS51 (C# başlatıcı)       -> .NET Framework csc.exe
 .EXAMPLE
@@ -17,7 +17,7 @@ param(
     [string]$Output,
     [ValidateSet('PS51', 'PS7')][string]$Target = 'PS7',
     [ValidateSet('Console', 'Gui')][string]$Mode = 'Console',
-    [ValidateSet('SelfContained', 'FrameworkDependent')][string]$RuntimeMode = 'SelfContained',
+    [ValidateSet('SelfContained', 'FrameworkDependent')][string]$RuntimeMode = 'FrameworkDependent',
     [ValidateSet('win-x64', 'win-arm64')][string]$Architecture = 'win-x64',
     [switch]$SingleFile,
     [string]$Icon,
@@ -30,7 +30,9 @@ param(
     [string]$Framework = 'net8.0',     # PS SDK 7.4.x -> net8.0
     [string]$LogPath,
     [switch]$Force,
-    [switch]$KeepTemp
+    [switch]$KeepTemp,
+    [switch]$EnableTrim,
+    [switch]$EnableUpx
 )
 
 Set-StrictMode -Version 2.0
@@ -89,8 +91,19 @@ function Get-ScriptText {
         return $enc.GetString($bytes)
     }
 }
-function ConvertTo-CsLiteral { param([string]$s) if ($null -eq $s) { $s = '' }; ($s -replace '\\', '\\' -replace '"', '\"' -replace "[\r\n]+", ' ') }
+function ConvertTo-CsLiteral { param([string]$s) if ($null -eq $s) { $s = '' }; ($s -replace '\\', '\\\\' -replace '"', '\"' -replace "[\r\n]+", ' ') }
 function ConvertTo-XmlText   { param([string]$s) [Security.SecurityElement]::Escape($s) }
+
+function Test-PwshInstalled {
+    # Local helper: detect pwsh on PATH and return version or $null
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if (-not $pwshCmd) { return $null }
+    try {
+        $ver = & $pwshCmd.Source -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>$null
+        return $ver.Trim()
+    }
+    catch { return $null }
+}
 
 # ---------------------------------------------------------------- ana akış
 $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -151,7 +164,7 @@ try {
         $distDir = Join-Path $outDir $baseName
         $finalExe = Join-Path $distDir ($baseName + '.exe')
         if ((Test-Path -LiteralPath $distDir) -and -not $Force) { Stop-Build 'PWX1006' "Hedef klasör zaten var: $distDir (üzerine yazmak için -Force)" }
-        if ((Test-Path -LiteralPath $distDir) -and -not (Test-Path -LiteralPath (Join-Path $distDir '.pwx-build'))) { Stop-Build 'PWX1006' "Hedef klasör PwX tarafından oluşturulmamış, silinmeyecek: $distDir" }
+        if ((Test-Path -LiteralPath $distDir) -and -not (Test-Path -LiteralPath (Join-Path $distDir '.pwx-build'))) { Stop-Build 'PWX1006' "Hedef klasör PwX tarafından oluşturulmamış, silinm[...]" }
     }
     elseif ((Test-Path -LiteralPath $Output) -and -not $Force) { Stop-Build 'PWX1006' "Çıktı dosyası zaten var: $Output (üzerine yazmak için -Force)" }
 
@@ -168,6 +181,13 @@ try {
 
     if ($Target -eq 'PS7') {
         # ------------------------------------------------ PowerShell 7 backend
+        # Warn if FrameworkDependent: target machines must have pwsh installed
+        if ($RuntimeMode -eq 'FrameworkDependent') {
+            $localPwsh = Test-PwshInstalled
+            if ($localPwsh) { Write-Log "UYARI: Framework-dependent build seçtiniz. Yerel pwsh bulundu: $localPwsh — hedef makinelerde uyumlu pwsh sürümü olduğundan emin olun." 'Warning' }
+            else { Write-Log "UYARI: Framework-dependent build seçtiniz fakat bu makinede pwsh bulunamadı. Hedef makinelerde pwsh kurulumu gereklidir." 'Warning' }
+        }
+
         $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
         if (-not $dotnet) { Stop-Build 'PWX3001' '.NET SDK bulunamadı. scripts\Check-Environment.ps1 çalıştırın.' }
         $hostSrc = Join-Path $script:Root 'src\PwX.BuildHost.PS7'
@@ -198,6 +218,7 @@ try {
                 '--nologo', '-v', 'minimal', '-p:DebugType=none', '-p:DebugSymbols=false')
         $pa += $(if ($RuntimeMode -eq 'SelfContained') { @('--self-contained', 'true') } else { @('--self-contained', 'false') })
         if ($SingleFile) { $pa += @('-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:IncludeAllContentForSelfExtract=true') }
+        if ($EnableTrim) { $pa += @('-p:PublishTrimmed=true') }
 
         Write-Log "dotnet publish çalışıyor (ilk çalıştırmada PowerShell SDK indirilir; birkaç dakika sürebilir)..."
         $code = Invoke-Native $dotnet.Source $pa $workDir
@@ -225,6 +246,20 @@ try {
             Copy-Item -Path (Join-Path $pub '*') -Destination $distDir -Recurse -Force
             Rename-Item -LiteralPath (Join-Path $distDir 'PwXApp.exe') -NewName ($baseName + '.exe')
             [IO.File]::WriteAllText((Join-Path $distDir '.pwx-build'), "PwX Build Engine`r`n", $script:Utf8NoBom)
+        }
+
+        # Optional: UPX compression (opt-in)
+        if ($EnableUpx) {
+            $upx = Get-Command upx -ErrorAction SilentlyContinue
+            if ($upx) {
+                try {
+                    if ($SingleFile) { Write-Log 'UPX: Single-file exe üzerinde sıkıştırma uygulanıyor...' ; & $upx.Source '--best' '--lzma' $Output }
+                    else { $exeToCompress = Join-Path $distDir ($baseName + '.exe'); Write-Log "UPX: Çok dosyalı dağıtım için ana exe üzerinde sıkıştırma uygulanıyor: $exeToCompress"; & $upx.Source '--best' '--lzma' $exeToCompress }
+                    Write-Log 'UPX sıkıştırması tamamlandı.'
+                }
+                catch { Write-Log "UPX çalıştırılırken hata: $($_.Exception.Message)" 'Warning' }
+            }
+            else { Write-Log 'UPX bulunamadı; sıkıştırma atlandı.' 'Warning' }
         }
     }
     else {
