@@ -38,7 +38,7 @@ if ($Json) { $r | ConvertTo-Json -Depth 4; return }
 Write-Host "`n=== PwX Build Engine - Ortam Kontrolü ===" -ForegroundColor Cyan
 foreach ($k in $r.Keys) {
     $v = $r[$k]; if ($v -is [array]) { $v = ($v -join ', ') }
-    $ok = ($v -ne $null -and $v -ne '' -and $v -ne $false)
+    $ok = ($null -ne $v -and $v -ne '' -and $v -ne $false)
     Write-Host ('{0,-22} {1}' -f $k, $v) -ForegroundColor $(if ($ok) { 'Green' } else { 'Yellow' })
 }
 Write-Host ''
