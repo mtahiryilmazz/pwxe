@@ -61,6 +61,11 @@ if ($targets -contains 'PS7') {
         # GUI (WinExe) programlari '&' ile çağrıldığında PowerShell beklemez ve $LASTEXITCODE güncellenmez.
         # Çıkış kodu yalnızca Process nesnesinden güvenilir ölçülür. Zaman aşımı, takılan bir GUI
         # sürecinin CI'ı kilitlemesini önler. PWX_ERROR_LOG, hata iletişim kutusu yerine dosyaya yazdırır.
+        # Bekleme süresi CI ortamına göre MAX_GUI_WAIT_MS ortam değişkeniyle ayarlanabilir (varsayılan 60 sn).
+        $guiWaitMs = 60000
+        $envWait = 0
+        if ($env:MAX_GUI_WAIT_MS -and [int]::TryParse($env:MAX_GUI_WAIT_MS, [ref]$envWait) -and $envWait -gt 0) { $guiWaitMs = $envWait }
+
         function ConvertTo-ArgString([string[]]$List) {
             ($List | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
         }
@@ -69,7 +74,10 @@ if ($targets -contains 'PS7') {
             if ($ArgList.Count -gt 0) { $sp.ArgumentList = ConvertTo-ArgString $ArgList }   # boş ArgumentList hata verir
             $p = Start-Process @sp
             $null = $p.Handle                                                                # ExitCode'un okunabilmesi için
-            if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch { }; return -999 }     # -999: zaman aşımı
+            if (-not $p.WaitForExit($guiWaitMs)) {                                          # -999: zaman aşımı
+                try { $p.Kill() } catch { Write-Warning "Zaman aşımına uğrayan GUI süreci sonlandırılamadı: $($_.Exception.Message)" }
+                return -999
+            }
             return $p.ExitCode
         }
 

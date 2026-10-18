@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS  PS7 GUI host mantığı birim testi (Windows gerektirmez; PowerShell 7 yeterli).
 .DESCRIPTION
   src\PwX.BuildHost.PS7\Program.cs (PWX_GUI tanımıyla) ve ScriptArguments.cs dosyalarını Add-Type ile

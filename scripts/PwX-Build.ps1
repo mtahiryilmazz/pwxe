@@ -142,7 +142,7 @@ function Install-DotnetSdk8 {
     try {
         $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet'
         $tmp = Join-Path ([IO.Path]::GetTempPath()) 'dotnet-install.ps1'
-        try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { Write-Log "TLS 1.2 etkinleştirilemedi: $($_.Exception.Message)" 'Debug' }
         Write-Log ".NET SDK 8, resmi dotnet-install.ps1 ile kullanıcı klasörüne kuruluyor: $dir"
         Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $tmp -UseBasicParsing
         $psExe = (Get-Command powershell.exe -ErrorAction Stop).Source
@@ -333,7 +333,7 @@ try {
         if ($code -ne 0) {
             $why = ''
             $logText = ''
-            try { $logText = [IO.File]::ReadAllText($script:LogFile) } catch { }
+            try { $logText = [IO.File]::ReadAllText($script:LogFile) } catch { Write-Log "Günlük dosyası okunamadı (hata nedeni çıkarımı atlandı): $($_.Exception.Message)" 'Debug' }
             if ($logText -match 'NU1301') { $why = ' NuGet sunucusuna ulaşılamadı (internet, proxy veya güvenlik duvarını kontrol edin).' }
             elseif ($logText -match 'NU110[01]') { $why = ' NuGet paketleri çözümlenemedi (etkin paket kaynağı yok ya da kaynakta paket bulunamadı); kontrol: dotnet nuget list source' }
             Stop-Build 'PWX3003' "dotnet publish başarısız (çıkış kodu $code).$why Ayrıntı için günlüğe bakın: $LogPath"
