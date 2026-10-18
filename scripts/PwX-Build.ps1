@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
   PwX Build Engine - PS2EXE'den bağımsız .ps1 -> .exe dönüştürücü (komut satırı).
@@ -48,7 +48,7 @@ $script:Utf8Bom   = New-Object System.Text.UTF8Encoding($true)
 # ---------------------------------------------------------------- yardımcılar
 function Write-Log {
     param([string]$Msg, [ValidateSet('Info', 'Warning', 'Error', 'Debug')][string]$Level = 'Info')
-    $line = '[{0:HH:mm:ss}] [{1}] {2}' -f (Get-Date), $Level.ToUpper(), $Msg
+    $line = '[{0:HH:mm:ss}] [{1}] {2}' -f (Get-Date), $Level.ToUpperInvariant(), $Msg
     if ($script:LogFile) { [IO.File]::AppendAllText($script:LogFile, $line + [Environment]::NewLine, $script:Utf8NoBom) }
     switch ($Level) {
         'Info'    { Write-Host $line }
@@ -304,8 +304,8 @@ try {
         $lines = New-Object System.Collections.Generic.List[string]
         $lines.Add('<Project><PropertyGroup>')
         $lines.Add('<PwxPayload>' + (ConvertTo-XmlText $payload) + '</PwxPayload>')
-        $lines.Add('<PwxGui>' + $gui.ToString().ToLower() + '</PwxGui>')
-        $lines.Add('<PwxSelfContained>' + ($RuntimeMode -eq 'SelfContained').ToString().ToLower() + '</PwxSelfContained>')
+        $lines.Add('<PwxGui>' + $gui.ToString().ToLowerInvariant() + '</PwxGui>')
+        $lines.Add('<PwxSelfContained>' + ($RuntimeMode -eq 'SelfContained').ToString().ToLowerInvariant() + '</PwxSelfContained>')
         $lines.Add('<PwxFramework>' + (ConvertTo-XmlText $Framework) + '</PwxFramework>')
         $lines.Add('<PwxPsSdkVersion>' + (ConvertTo-XmlText $PsSdkVersion) + '</PwxPsSdkVersion>')
         if ($iconFull) { $lines.Add('<PwxIcon>' + (ConvertTo-XmlText $iconFull) + '</PwxIcon>') }
