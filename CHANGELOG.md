@@ -8,6 +8,30 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ---
 
+## [Unreleased]
+
+### Added
+- **PS7 prerequisite detection:** `-Target PS7` verifies a real .NET SDK 8+ (a runtime alone is not enough, `PWX3005`) and an enabled NuGet source (`PWX3006`) and fails early with a clear message instead of an opaque `dotnet publish` exit code.
+- **`-AutoInstallPrereqs`** (script and `Invoke-Pwxe`): installs a missing .NET SDK 8 (winget, falling back to Microsoft's official `dotnet-install.ps1` into the user profile) and adds/enables `nuget.org` in the user-level NuGet config. Opt-in only.
+- **`-EnableTrim`** (experimental): `PublishTrimmed` for PS7. Requires `-RuntimeMode SelfContained` (`PWX3007` otherwise).
+- **`-EnableUpx`** (experimental): UPX compression pass; skipped for single-file output, exit code is checked.
+- `Invoke-Pwxe` now forwards `-EnableTrim`, `-EnableUpx` and `-AutoInstallPrereqs`.
+- `dotnet publish` failures now explain `NU1100` / `NU1101` / `NU1301` (NuGet) causes.
+- `docs/PS7-build-modes.md`: accurate description of SelfContained vs FrameworkDependent and their requirements.
+
+### Changed
+- `-RuntimeMode` default stays **`SelfContained`**. `FrameworkDependent` is an explicit option; its build warning now correctly says the target needs the **.NET 8 Runtime** (Desktop Runtime for GUI), not `pwsh`.
+- Native `dotnet` calls run with an English UI language (parseable logs, no OEM-codepage mojibake); environment variables are restored afterwards.
+
+### Fixed
+- `ConvertTo-CsLiteral` over-escaped backslashes (each `\` became four) - restored.
+- Duplicate error code: the SDK check no longer reuses `PWX3004` ("PwXApp.exe not found"); it is `PWX3005`.
+
+### Removed
+- `docs/PS7-size-optimization-audit.md` (contained inaccurate claims: "requires pwsh", trimming with FrameworkDependent, non-existent CI action) and a stray `0001-*.patch` file in the repository root.
+
+---
+
 ## [1.0.1] — 2026-10-16
 
 ### Fixed

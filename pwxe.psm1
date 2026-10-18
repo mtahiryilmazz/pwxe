@@ -59,7 +59,16 @@ function Invoke-Pwxe {
         [string]$ProductVersion = '1.0.0.0',
 
         [Parameter()]
-        [switch]$Force
+        [switch]$Force,
+
+        [Parameter()]
+        [switch]$EnableTrim,
+
+        [Parameter()]
+        [switch]$EnableUpx,
+
+        [Parameter()]
+        [switch]$AutoInstallPrereqs
     )
 
     process {
@@ -94,6 +103,9 @@ function Invoke-Pwxe {
             $bArgs.RuntimeMode = $Runtime
             $bArgs.Architecture = $Architecture
             if ($SingleFile.IsPresent) { $bArgs.SingleFile = $true }
+            if ($EnableTrim.IsPresent) { $bArgs.EnableTrim = $true }
+            if ($EnableUpx.IsPresent) { $bArgs.EnableUpx = $true }
+            if ($AutoInstallPrereqs.IsPresent) { $bArgs.AutoInstallPrereqs = $true }
         }
 
         & $script:EngineBuildScript @bArgs

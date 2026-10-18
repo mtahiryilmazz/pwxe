@@ -83,6 +83,11 @@ Invoke-Pwxe -Source .\modern.ps1 `
 | `-Mode` | `Console` / `Gui` | `Console` | Console window visibility |
 | `-Runtime` | `SelfContained` / `FrameworkDependent` | `SelfContained` | PS7 runtime bundling |
 | `-SingleFile` | Switch | `False` | Embed all dependencies into single `.exe` (PS7) |
+| `-EnableTrim` | Switch | `False` | **Experimental.** `PublishTrimmed`; requires `-Runtime SelfContained` (PowerShell uses reflection - test the output) |
+| `-EnableUpx` | Switch | `False` | **Experimental.** UPX-compress the output if `upx` is on PATH (skipped for single-file; may trigger AV false positives) |
+| `-AutoInstallPrereqs` | Switch | `False` | PS7: install a missing .NET SDK 8 (winget, or the official `dotnet-install.ps1`) and enable `nuget.org` if no NuGet source is enabled |
+
+> **PS7 output modes:** `SelfContained` (default) runs on any Windows machine without extra installs. `FrameworkDependent` is much smaller but needs the **.NET 8 Runtime** (GUI apps: **Windows Desktop Runtime 8**) on the target machine - `pwsh` is *not* required, the PowerShell engine ships inside the output. See [docs/PS7-build-modes.md](docs/PS7-build-modes.md).
 | `-Icon` | String | `$null` | Application `.ico` file path |
 | `-Title` | String | File name | Product name and description |
 | `-CompanyName` | String | `$null` | Company/Publisher name |
