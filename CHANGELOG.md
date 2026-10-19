@@ -10,6 +10,17 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-19
+
+### Added
+- End-to-end Windows output options: x86/x64 architecture, administrator manifest, DPI awareness, supported Windows versions, long paths, EXE.config, UTF-8/Unicode output and output suppression.
+- FrameworkDependent + SingleFile packaging for smaller PS7 distributions.
+- Comprehensive PS5.1, PS7 Console and PS7 GUI test coverage with runtime, negative-path and log validation.
+
+### Changed
+- FrameworkDependent remains opt-in; SelfContained remains the default.
+- Documentation separates build-machine requirements from target-machine runtime requirements.
+
 ### Added
 - Windows output options are now wired end-to-end: x86/x64 architecture, administrator manifest, DPI awareness, supported Windows versions, long paths, EXE.config, UTF-8/Unicode console output and output suppression.
 - FrameworkDependent can now be combined with SingleFile for a smaller single executable that still requires the matching .NET 8 runtime.
