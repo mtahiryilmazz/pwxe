@@ -24,6 +24,8 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 ## 🚀 Detailed Milestones
 
 ### Milestone 1: v1.0.x — Core Engine & Host Fidelity (Current)
+
+The current implementation now includes validated PS5.1 and PS7 Console/GUI builds, SelfContained and FrameworkDependent modes, SingleFile packaging, x86/x64 selection, Windows manifests, EXE.config generation and deterministic diagnostics. The remaining work in this milestone is release packaging and broader clean-machine validation.
 - [x] **Dual Target Engines:**
   - Fast, zero-dependency Windows PowerShell 5.1 compilation via Roslyn `csc.exe`.
   - Modern PowerShell 7.4+ hosting via .NET 8 SDK and `Microsoft.PowerShell.SDK`.

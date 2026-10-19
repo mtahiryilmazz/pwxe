@@ -60,11 +60,19 @@ namespace PwX.Stub
                 psi.CreateNoWindow = true;
                 psi.WindowStyle = ProcessWindowStyle.Hidden;
 #else
+#if PWX_NO_OUTPUT
+                psi.RedirectStandardOutput = true;
+#endif
+#if PWX_UTF8_OUTPUT
                 // Turkce karakterler icin konsol cikis kod sayfasini gecici olarak UTF-8 yap
                 try { oldCp = GetConsoleOutputCP(); if (oldCp != 0) SetConsoleOutputCP(65001); } catch { }
 #endif
+#endif
                 using (Process p = Process.Start(psi))
                 {
+#if PWX_NO_OUTPUT
+                    if (psi.RedirectStandardOutput) p.StandardOutput.ReadToEnd();
+#endif
                     p.WaitForExit();
                     return p.ExitCode;
                 }
@@ -76,7 +84,9 @@ namespace PwX.Stub
             }
             finally
             {
+#if PWX_UTF8_OUTPUT
                 try { if (oldCp != 0) SetConsoleOutputCP(oldCp); } catch { }
+#endif
                 try { if (workDir != null && Directory.Exists(workDir)) Directory.Delete(workDir, true); } catch { }
             }
         }

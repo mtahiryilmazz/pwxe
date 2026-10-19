@@ -18,7 +18,7 @@ param(
     [ValidateSet('PS51', 'PS7')][string]$Target = 'PS7',
     [ValidateSet('Console', 'Gui')][string]$Mode = 'Console',
     [ValidateSet('SelfContained', 'FrameworkDependent')][string]$RuntimeMode = 'SelfContained',
-    [ValidateSet('win-x64', 'win-arm64')][string]$Architecture = 'win-x64',
+    [ValidateSet('win-x86', 'win-x64', 'win-arm64')][string]$Architecture = 'win-x64',
     [switch]$SingleFile,
     [string]$Icon,
     [string]$ProductName,
@@ -33,7 +33,15 @@ param(
     [switch]$KeepTemp,
     [switch]$EnableTrim,
     [switch]$EnableUpx,
-    [switch]$AutoInstallPrereqs   # PS7: eksik .NET SDK 8+ / NuGet kaynağını otomatik kur/düzelt
+    [switch]$AutoInstallPrereqs,  # PS7: eksik .NET SDK 8+ / NuGet kaynağını otomatik kur/düzelt
+    [bool]$Admin = $false,
+    [bool]$Utf8 = $true,
+    [bool]$Unicode = $false,
+    [bool]$Dpi = $false,
+    [bool]$Config = $false,
+    [bool]$SupportOS = $false,
+    [bool]$LongPaths = $false,
+    [bool]$NoOutput = $false
 )
 
 Set-StrictMode -Version 2.0
@@ -95,6 +103,23 @@ function Get-ScriptText {
 }
 function ConvertTo-CsLiteral { param([string]$s) if ($null -eq $s) { $s = '' }; ($s -replace '\\', '\\' -replace '"', '\"' -replace "[\r\n]+", ' ') }
 function ConvertTo-XmlText   { param([string]$s) [Security.SecurityElement]::Escape($s) }
+function New-AppManifest {
+    param([string]$Path, [bool]$RequireAdmin, [bool]$DpiAware, [bool]$OsSupport, [bool]$LongPathAware)
+    $execution = if ($RequireAdmin) { 'requireAdministrator' } else { 'asInvoker' }
+    $windows = if ($DpiAware -or $LongPathAware) {
+        $dpiNode = if ($DpiAware) { '<dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware><dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>' } else { '' }
+        $longNode = if ($LongPathAware) { '<longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>' } else { '' }
+        '<application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>' + $dpiNode + $longNode + '</windowsSettings></application>'
+    } else { '' }
+    $compat = if ($OsSupport) { '<compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application><supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/><supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/></application></compatibility>' } else { '' }
+    $xml = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"><assemblyIdentity version="1.0.0.0" processorArchitecture="*" name="PwXApp" type="win32"/><trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="{0}" uiAccess="false" /></requestedPrivileges></security></trustInfo>{1}{2}</assembly>' -f $execution, $windows, $compat
+    [IO.File]::WriteAllText($Path, $xml, $script:Utf8NoBom)
+}
+function New-AppConfig {
+    param([string]$Path)
+    $xml = '<?xml version="1.0" encoding="utf-8"?><configuration><startup useLegacyV2RuntimeActivationPolicy="true"><supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.0"/></startup></configuration>'
+    [IO.File]::WriteAllText($Path, $xml, $script:Utf8NoBom)
+}
 
 # ---------------------------------------------------------------- PS7 gereksinimleri
 function Invoke-NativeLines {
@@ -259,6 +284,12 @@ try {
     $workDir = Join-Path ([IO.Path]::GetTempPath()) ('pwx-build-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $workDir | Out-Null
     Write-Log "Çalışma alanı: $workDir" 'Debug'
+    $manifest = $null
+    if ($Admin -or $Dpi -or $SupportOS -or $LongPaths) {
+        $manifest = Join-Path $workDir 'app.manifest'
+        New-AppManifest $manifest $Admin $Dpi $SupportOS $LongPaths
+        Write-Log "Windows uygulama bildirimi üretildi (Admin=$Admin, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
+    }
 
     # 7) payload: UTF-8 BOM ile normalize et (Türkçe karakter güvenliği)
     $payload = Join-Path $workDir 'payload.ps1'
@@ -305,6 +336,8 @@ try {
         $lines.Add('<Project><PropertyGroup>')
         $lines.Add('<PwxPayload>' + (ConvertTo-XmlText $payload) + '</PwxPayload>')
         $lines.Add('<PwxGui>' + $gui.ToString().ToLowerInvariant() + '</PwxGui>')
+        $lines.Add('<PwxUtf8>' + (($Utf8 -or $Unicode).ToString().ToLowerInvariant()) + '</PwxUtf8>')
+        $lines.Add('<PwxNoOutput>' + $NoOutput.ToString().ToLowerInvariant() + '</PwxNoOutput>')
         $lines.Add('<PwxSelfContained>' + ($RuntimeMode -eq 'SelfContained').ToString().ToLowerInvariant() + '</PwxSelfContained>')
         $lines.Add('<PwxFramework>' + (ConvertTo-XmlText $Framework) + '</PwxFramework>')
         $lines.Add('<PwxPsSdkVersion>' + (ConvertTo-XmlText $PsSdkVersion) + '</PwxPsSdkVersion>')
@@ -312,6 +345,7 @@ try {
         $lines.Add('<Product>' + (ConvertTo-XmlText $ProductName) + '</Product>')
         if ($CompanyName) { $lines.Add('<Company>' + (ConvertTo-XmlText $CompanyName) + '</Company>') }
         if ($Description) { $lines.Add('<Description>' + (ConvertTo-XmlText $Description) + '</Description>') }
+        if ($manifest) { $lines.Add('<PwxManifest>' + (ConvertTo-XmlText $manifest) + '</PwxManifest>') }
         $lines.Add('<AssemblyVersion>' + $FileVersion + '</AssemblyVersion>')
         $lines.Add('<FileVersion>' + $FileVersion + '</FileVersion>')
         $lines.Add('<InformationalVersion>' + (ConvertTo-XmlText $ProductVersion) + '</InformationalVersion>')
@@ -363,6 +397,11 @@ try {
             [IO.File]::WriteAllText((Join-Path $distDir '.pwx-build'), "PwX Build Engine`r`n", $script:Utf8NoBom)
         }
 
+        if ($Config) {
+            $configPath = if ($SingleFile) { "$Output.config" } else { Join-Path $distDir ($baseName + '.exe.config') }
+            New-AppConfig $configPath
+        }
+
         # Opsiyonel (deneysel): UPX sıkıştırma
         if ($EnableUpx) {
             $upx = Get-Command upx -ErrorAction SilentlyContinue
@@ -400,11 +439,15 @@ using System.Reflection;
 
         $rsp = New-Object System.Collections.Generic.List[string]
         $rsp.Add('/nologo'); $rsp.Add($(if ($gui) { '/target:winexe' } else { '/target:exe' }))
-        $rsp.Add('/platform:anycpu'); $rsp.Add('/optimize+'); $rsp.Add('/debug-'); $rsp.Add('/utf8output')
+        $platform = if ($Architecture -eq 'win-x86') { 'x86' } elseif ($Architecture -eq 'win-arm64') { 'anycpu' } else { 'x64' }
+        $rsp.Add('/platform:' + $platform); $rsp.Add('/optimize+'); $rsp.Add('/debug-')
+        if ($Utf8 -or $Unicode) { $rsp.Add('/utf8output'); $rsp.Add('/define:PWX_UTF8_OUTPUT') }
+        if ($NoOutput) { $rsp.Add('/define:PWX_NO_OUTPUT') }
         if ($gui) { $rsp.Add('/define:PWX_GUI') }
         $rsp.Add('/out:out.exe')
         $rsp.Add('/resource:payload.ps1,PwX.payload.ps1')
         if ($iconFull) { Copy-Item -LiteralPath $iconFull -Destination (Join-Path $workDir 'icon.ico'); $rsp.Add('/win32icon:icon.ico') }
+        if ($manifest) { $rsp.Add('/win32manifest:app.manifest') }
         $rsp.Add('Stub.cs'); $rsp.Add('AssemblyInfo.cs')
         [IO.File]::WriteAllText((Join-Path $workDir 'build.rsp'), ($rsp -join "`r`n"), $script:Utf8Bom)
 
@@ -412,6 +455,7 @@ using System.Reflection;
         $code = Invoke-Native $csc @('@build.rsp') $workDir
         if ($code -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $workDir 'out.exe'))) { Stop-Build 'PWX3103' "csc derlemesi başarısız (çıkış kodu $code). Ayrıntı: $LogPath" }
         Copy-Item -LiteralPath (Join-Path $workDir 'out.exe') -Destination $Output -Force
+        if ($Config) { New-AppConfig "$Output.config" }
     }
 
     # 8) çıktıyı doğrula

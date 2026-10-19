@@ -105,7 +105,12 @@ namespace PwX.BuildHost
         // Konsol modu: pwsh -File davranisi (parametreler, stdout/stderr, cikis kodu)
         private static int RunConsole(string scriptPath, string[] userArgs)
         {
+#if PWX_UTF8_OUTPUT
             try { Console.OutputEncoding = new UTF8Encoding(false); } catch { }
+#endif
+#if PWX_NO_OUTPUT
+            try { Console.SetOut(TextWriter.Null); } catch { }
+#endif
 
             string[] psArgs = new string[userArgs.Length + 6];
             psArgs[0] = "-NoLogo";

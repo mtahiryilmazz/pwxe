@@ -7,6 +7,8 @@
     <PwxPsSdkVersion Condition="'$(PwxPsSdkVersion)'==''">7.4.6</PwxPsSdkVersion>
     <PwxSelfContained Condition="'$(PwxSelfContained)'==''">true</PwxSelfContained>
     <PwxGui Condition="'$(PwxGui)'==''">false</PwxGui>
+    <PwxUtf8 Condition="'$(PwxUtf8)'==''">true</PwxUtf8>
+    <PwxNoOutput Condition="'$(PwxNoOutput)'==''">false</PwxNoOutput>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -20,6 +22,8 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DefineConstants Condition="'$(PwxUtf8)'=='true'">$(DefineConstants);PWX_UTF8_OUTPUT</DefineConstants>
+    <DefineConstants Condition="'$(PwxNoOutput)'=='true'">$(DefineConstants);PWX_NO_OUTPUT</DefineConstants>
     <!-- Ilk surumde trimming / AOT KULLANILMAZ (Roadmap Bolum 14) -->
     <PublishTrimmed>false</PublishTrimmed>
     <PublishAot>false</PublishAot>
@@ -37,6 +41,9 @@
 
   <PropertyGroup Condition="'$(PwxIcon)'!=''">
     <ApplicationIcon>$(PwxIcon)</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PwxManifest)'!=''">
+    <ApplicationManifest>$(PwxManifest)</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

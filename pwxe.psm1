@@ -68,7 +68,16 @@ function Invoke-Pwxe {
         [switch]$EnableUpx,
 
         [Parameter()]
-        [switch]$AutoInstallPrereqs
+        [switch]$AutoInstallPrereqs,
+
+        [bool]$Admin = $false,
+        [bool]$Utf8 = $true,
+        [bool]$Unicode = $false,
+        [bool]$Dpi = $false,
+        [bool]$Config = $false,
+        [bool]$SupportOS = $false,
+        [bool]$LongPaths = $false,
+        [bool]$NoOutput = $false
     )
 
     process {
@@ -98,10 +107,18 @@ function Invoke-Pwxe {
         if ($CompanyName) { $bArgs.CompanyName = $CompanyName }
         if ($FileVersion) { $bArgs.FileVersion = $FileVersion }
         if ($ProductVersion) { $bArgs.ProductVersion = $ProductVersion }
+        $bArgs.Admin = $Admin
+        $bArgs.Utf8 = $Utf8
+        $bArgs.Unicode = $Unicode
+        $bArgs.Dpi = $Dpi
+        $bArgs.Config = $Config
+        $bArgs.SupportOS = $SupportOS
+        $bArgs.LongPaths = $LongPaths
+        $bArgs.NoOutput = $NoOutput
+        $bArgs.Architecture = $Architecture
 
         if ($Target -eq 'PS7') {
             $bArgs.RuntimeMode = $Runtime
-            $bArgs.Architecture = $Architecture
             if ($SingleFile.IsPresent) { $bArgs.SingleFile = $true }
             if ($EnableTrim.IsPresent) { $bArgs.EnableTrim = $true }
             if ($EnableUpx.IsPresent) { $bArgs.EnableUpx = $true }

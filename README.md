@@ -28,6 +28,21 @@
 
 ---
 
+## Build modes and Windows options
+
+PS7 builds include the PowerShell engine. The pwsh command is not required on the target machine.
+
+| Mode | Target-machine requirement | Typical size |
+|---|---|---:|
+| SelfContained | No .NET runtime installation | Largest; single-file is commonly 100+ MiB |
+| FrameworkDependent | .NET 8 Runtime; GUI requires .NET 8 Desktop Runtime | Small host or roughly 40 MiB single-file |
+
+SelfContained remains the default. Use RuntimeMode FrameworkDependent when a smaller distribution is more important than zero runtime prerequisites. Single-file can be combined with either mode.
+
+The engine supports x86/x64, administrator execution, DPI awareness, Windows compatibility, long paths, EXE.config generation, UTF-8/Unicode output and output suppression.
+
+The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target machine only needs the runtime listed above.
+
 ## 📥 Installation
 
 From **PowerShell Gallery**:

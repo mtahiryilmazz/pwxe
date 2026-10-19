@@ -9,6 +9,10 @@
 
 `-SingleFile` packs everything into one `.exe` in either mode.
 
+## Windows output options
+
+The build engine supports Architecture win-x86, win-x64 and win-arm64, administrator execution, DPI awareness, supported Windows versions, long paths, EXE.config generation, UTF-8/Unicode output and output suppression. These options are embedded in the executable or emitted beside it as EXE.config.
+
 ## Build-machine requirements (PS7 target)
 - A real **.NET SDK 8+** (the runtime alone is not enough) - error `PWX3005`.
 - At least one enabled **NuGet source** to restore the PowerShell SDK packages - error `PWX3006`.

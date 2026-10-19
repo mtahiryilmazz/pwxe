@@ -11,6 +11,9 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 ## [Unreleased]
 
 ### Added
+- Windows output options are now wired end-to-end: x86/x64 architecture, administrator manifest, DPI awareness, supported Windows versions, long paths, EXE.config, UTF-8/Unicode console output and output suppression.
+- FrameworkDependent can now be combined with SingleFile for a smaller single executable that still requires the matching .NET 8 runtime.
+- The PowerShell module forwards the Windows output options to the build engine.
 - **PS7 prerequisite detection:** `-Target PS7` verifies a real .NET SDK 8+ (a runtime alone is not enough, `PWX3005`) and an enabled NuGet source (`PWX3006`) and fails early with a clear message instead of an opaque `dotnet publish` exit code.
 - **`-AutoInstallPrereqs`** (script and `Invoke-Pwxe`): installs a missing .NET SDK 8 (winget, falling back to Microsoft's official `dotnet-install.ps1` into the user profile) and adds/enables `nuget.org` in the user-level NuGet config. Opt-in only.
 - **`-EnableTrim`** (experimental): `PublishTrimmed` for PS7. Requires `-RuntimeMode SelfContained` (`PWX3007` otherwise).
