@@ -10,7 +10,13 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ## [Unreleased]
 
-## [1.6.1] — 2026-10-20
+## [1.6.2] — 2026-10-20
+
+### Fixed
+- **PowerShell Gallery Publishing Reliability:** Forced `DOTNET_CLI_UI_LANGUAGE=en-US` and InvariantCulture during packaging to eliminate the `Cannot index into a null array` parsing bug caused by localized Turkish `dotnet pack` outputs.
+- **Publish-Package Staging:** Excluded internal `Publish-Package.ps1` script from the published module package to avoid NuGet `NU5110` / `NU5111` script warnings.
+- **Fallback Mechanism:** Implemented automatic fallback from `Publish-PSResource` to `Publish-Module` (PowerShellGet) in release automation.
+- **Manifest Conformity:** Cleaned up `CmdletsToExport` and `VariablesToExport` in `pwxe.psd1` to empty arrays `@()` following PowerShell Gallery manifest best practices.
 
 ### Changed
 - Standardized all CLI diagnostic messages, logs, and internal exception strings to clean English ASCII to eliminate character encoding/locale issues across all operating systems.
