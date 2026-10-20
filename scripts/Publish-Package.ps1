@@ -70,6 +70,11 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# PSGallery ve modern HTTPS API'leri için TLS 1.2'yi zorunlu kıl
+try {
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+} catch { }
+
 # ------------------------------------------------------------- Yollar & Dizinler
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ManifestPath = Join-Path $RepoRoot 'pwxe.psd1'
