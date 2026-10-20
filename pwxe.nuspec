@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>pwxe</id>
+    <version>1.6.0</version>
+    <authors>Tahir Yilmaz</authors>
+    <owners>Tahir Yilmaz</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/mtahiryilmazz/pwxe</projectUrl>
+    <readme>README.md</readme>
+    <description>pwxe - Modern, ultra-fast and standalone PowerShell script to EXE build engine (PwX Build Engine). Supports PowerShell 5.1 and PowerShell 7.4+ runtimes with zero external dependencies.</description>
+    <releaseNotes>https://github.com/mtahiryilmazz/pwxe/blob/main/CHANGELOG.md</releaseNotes>
+    <copyright>(c) 2026 Tahir Yilmaz. All rights reserved.</copyright>
+    <tags>PowerShell EXE Build Compile WinForms Packaging CLI dotnet PSModule</tags>
+    <packageTypes>
+      <packageType name="PowerShellModule" />
+    </packageTypes>
+  </metadata>
+  <files>
+    <file src="pwxe.psd1" target="pwxe.psd1" />
+    <file src="pwxe.psm1" target="pwxe.psm1" />
+    <file src="README.md" target="README.md" />
+    <file src="LICENSE" target="LICENSE" />
+    <file src="scripts\**" target="scripts" />
+    <file src="src\**" target="src" />
+  </files>
+</package>
