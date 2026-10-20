@@ -59,6 +59,9 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         $cliArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
         foreach ($k in $PSBoundParameters.Keys) {
             $val = $PSBoundParameters[$k]
+            # API anahtarlari komut satirinda gorunmesin: ortam degiskeni olarak cocuk surece devredilir
+            if ($k -eq 'NuGetApiKey') { $env:NUGET_API_KEY = "$val"; continue }
+            if ($k -eq 'PSGalleryApiKey') { $env:PSGALLERY_API_KEY = "$val"; continue }
             if ($val -is [switch]) {
                 if ($val.IsPresent) { $cliArgs += "-$k" }
             } else {
@@ -118,7 +121,7 @@ function Write-Err {
 function Normalize-ApiKey {
     param([string]$Key)
     if ([string]::IsNullOrWhiteSpace($Key)) { return '' }
-    # Turkce klavye 'i' harfini dotless 'ı' yaparsa duzelt
+    # Turkce klavye 'i' harfini noktasiz i (U+0131) yaparsa duzelt
     $clean = $Key.Trim()
     $clean = $clean.Replace([char]0x0131, 'i').Replace([char]0x0130, 'I')
     return $clean
@@ -187,6 +190,10 @@ if (-not $SkipValidation) {
     }
 }
 
+if (-not $ModuleVersion -and (Test-Path $ManifestPath)) {
+    try { $ModuleVersion = [string](Import-PowerShellDataFile -Path $ManifestPath).ModuleVersion } catch { }
+}
+
 # ------------------------------------------------------------- 2. API Key Yonetimi
 Write-Step "2. API Anahtarlari Kontrol Ediliyor..."
 
@@ -241,7 +248,8 @@ if (-not (Test-Path $ArtifactsFullPath)) {
 
 $PackageFile = $null
 
-if (-not $SkipPack) {
+# PSGallery yayini .nupkg gerektirmez (Publish-PSResource/Publish-Module kendi paketini uretir).
+if ($needNuGet -and -not $SkipPack) {
     Write-Step "3. NuGet Paketi (.nupkg) Olusturuluyor..."
 
     $packerCmd = $null
@@ -249,11 +257,15 @@ if (-not $SkipPack) {
         $packerCmd = $NugetExePath
     } elseif (Get-Command nuget -ErrorAction SilentlyContinue) {
         $packerCmd = "nuget"
+    } else {
+        Write-Host "nuget.exe bulunamadi, indiriliyor..."
+        Invoke-WebRequest -Uri 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $NugetExePath -UseBasicParsing
+        $packerCmd = $NugetExePath
     }
 
     if ($packerCmd) {
         Write-Host "Paketleyici: $packerCmd"
-        & $packerCmd pack $NuspecPath -OutputDirectory $ArtifactsFullPath
+        & $packerCmd pack $NuspecPath -OutputDirectory $ArtifactsFullPath -NonInteractive
         if ($LASTEXITCODE -ne 0) {
             throw "Paket olusturma basarisiz oldu (Hata Kodu: $LASTEXITCODE)!"
         }
@@ -263,12 +275,18 @@ if (-not $SkipPack) {
 }
 
 # En guncel nupkg dosyasini bul
-$packages = Get-ChildItem -Path $ArtifactsFullPath -Filter "*.nupkg" | Sort-Object LastWriteTime -Descending
-if ($packages) {
-    $PackageFile = $packages[0]
-    Write-Success "Kullanilacak paket: $($PackageFile.FullName)"
-} else {
-    if ($needNuGet) {
+if ($needNuGet) {
+    $packages = @()
+    if ($ModuleVersion) {
+        $packages = @(Get-ChildItem -Path $ArtifactsFullPath -Filter "pwxe.$ModuleVersion.nupkg" -ErrorAction SilentlyContinue)
+    }
+    if ($packages.Count -eq 0) {
+        $packages = @(Get-ChildItem -Path $ArtifactsFullPath -Filter "*.nupkg" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    }
+    if ($packages.Count -gt 0) {
+        $PackageFile = $packages[0]
+        Write-Success "Kullanilacak paket: $($PackageFile.FullName)"
+    } else {
         throw "Yayinlanacak .nupkg paketi bulunamadi ($ArtifactsFullPath)!"
     }
 }
@@ -283,16 +301,28 @@ if ($needPSGallery) {
         Write-Warn "PSGallery API Key mevcut degil, yayin atlaniyor."
         $psGalleryStatus = "Key Yok (Atlandi)"
     } else {
+        $hasPSResource = [bool](Get-Command Publish-PSResource -ErrorAction SilentlyContinue)
+        $hasPublishModule = [bool](Get-Command Publish-Module -ErrorAction SilentlyContinue)
+
         if ($DryRun) {
-            Write-Color "[DRY-RUN] Publish-Module -Path `"$RepoRoot`" -NuGetApiKey `"[GIZLI]`" -WhatIf" Magenta
+            $toolName = if ($hasPSResource) { 'Publish-PSResource' } else { 'Publish-Module' }
+            Write-Color "[DRY-RUN] $toolName -Path <staging\pwxe> -ApiKey [GIZLI] (Repository: PSGallery)" Magenta
             $psGalleryStatus = "DryRun (Basarili)"
         } else {
-            # Repo kok dizini cok sayida build/test artiklari icerdiginden,
-            # Publish-Module'un 'Cannot index into a null array' hatasini onlemek icin temiz staging dizini olustur.
-            # NOT: PowerShell, klasor adinin modul adiyla ('pwxe') ayni olmasini zorunlu kilar.
+            # Modul klasoru adi modul adiyla ('pwxe') ayni olmali; bu yuzden temiz bir staging dizini kullanilir.
             $stageParent = Join-Path ([System.IO.Path]::GetTempPath()) "pwxe_stage_$([System.Guid]::NewGuid().ToString('N').Substring(0,8))"
             $stageDir = Join-Path $stageParent 'pwxe'
+            $savedLang = @{ D = $env:DOTNET_CLI_UI_LANGUAGE; V = $env:VSLANG }
+            $savedCulture = [System.Threading.Thread]::CurrentThread.CurrentCulture
+            $savedUICulture = [System.Threading.Thread]::CurrentThread.CurrentUICulture
             try {
+                # PowerShellGet ve NuGet parserlarinda Turkce i/I hatasini onlemek icin kulturu Invariant yap
+                $inv = [System.Globalization.CultureInfo]::InvariantCulture
+                [System.Threading.Thread]::CurrentThread.CurrentCulture = $inv
+                [System.Threading.Thread]::CurrentThread.CurrentUICulture = $inv
+                $env:DOTNET_CLI_UI_LANGUAGE = 'en'
+                $env:VSLANG = '1033'
+
                 Write-Host "Modul staging dizini hazirlaniyor: $stageDir..."
                 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
                 Copy-Item (Join-Path $RepoRoot 'pwxe.psd1') -Destination $stageDir
@@ -305,36 +335,75 @@ if ($needPSGallery) {
                 if (Test-Path (Join-Path $RepoRoot 'src')) {
                     Copy-Item (Join-Path $RepoRoot 'src') -Destination $stageDir -Recurse
                 }
+                # Yerel derlemelerden kalan bin/obj klasorlerini pakete alma
+                Get-ChildItem -Path $stageDir -Include bin, obj -Recurse -Directory -ErrorAction SilentlyContinue |
+                    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-                Write-Host "PSGallery'ye yukleniyor ($stageDir)..."
-                Publish-Module -Path $stageDir -NuGetApiKey $PSGalleryApiKey -Verbose -ErrorAction Stop
+                # Staging'deki manifesti son kez dogrula
+                $null = Test-ModuleManifest -Path (Join-Path $stageDir 'pwxe.psd1') -ErrorAction Stop
+
+                $published = $false
+                $lastErr = $null
+
+                # 1. Oncelik: Publish-PSResource (Modern PSResourceGet)
+                if ($hasPSResource) {
+                    try {
+                        Write-Host "PSGallery'ye yukleniyor (Publish-PSResource): $stageDir"
+                        Publish-PSResource -Path $stageDir -Repository PSGallery -ApiKey $PSGalleryApiKey -Verbose -ErrorAction Stop
+                        $published = $true
+                    }
+                    catch {
+                        $lastErr = $_
+                        Write-Warn "Publish-PSResource basarisiz oldu: $($_.Exception.Message)"
+                        if ($hasPublishModule) {
+                            Write-Host "Alternatif olarak klasik 'Publish-Module' (PowerShellGet) deneniyor..." -ForegroundColor Yellow
+                        }
+                    }
+                }
+
+                # 2. Oncelik / Fallback: Publish-Module (Klasik PowerShellGet)
+                if (-not $published -and $hasPublishModule) {
+                    try {
+                        Write-Host "PSGallery'ye yukleniyor (Publish-Module): $stageDir"
+                        Publish-Module -Path $stageDir -NuGetApiKey $PSGalleryApiKey -Verbose -ErrorAction Stop
+                        $published = $true
+                    }
+                    catch {
+                        $lastErr = $_
+                        throw $lastErr
+                    }
+                } elseif (-not $published -and $lastErr) {
+                    throw $lastErr
+                }
+
                 Write-Success "PowerShell Gallery'ye basariyla yayinlandi!"
                 $psGalleryStatus = "Basarili"
             }
             catch {
-                Write-Warn "Publish-Module sirasinda hata alindi: $_"
-                Write-Host "Alternatif olarak NuGet endpoint uzerinden PSGallery'ye aktarim deneniyor..."
-                
-                # Alternatif direct push (PSGallery NuGet v2 endpoint)
-                if ($PackageFile) {
-                    try {
-                        dotnet nuget push $PackageFile.FullName --source https://www.powershellgallery.com/api/v2/package --api-key $PSGalleryApiKey --skip-duplicate
-                        if ($LASTEXITCODE -eq 0) {
-                            Write-Success "PowerShell Gallery'ye basariyla yayinlandi (Direct Push)!"
-                            $psGalleryStatus = "Basarili"
-                        } else {
-                            Write-Err "Direct push basarisiz (Kod: $LASTEXITCODE)."
-                            $psGalleryStatus = "Hata: $_"
-                        }
-                    } catch {
-                        Write-Err "Direct push sirasinda hata: $_"
-                        $psGalleryStatus = "Hata: $_"
-                    }
-                } else {
-                    $psGalleryStatus = "Hata: $_"
+                $errText = $_.Exception.Message
+                Write-Err "PSGallery yayini basarisiz: $errText"
+                Write-Host $_.Exception.ToString()
+                if ($errText -match '403|Forbidden|API key|ApiKey|permission|izin') {
+                    Write-Warn @"
+--------------------------------------------------------------------------------
+PSGallery 403 (Forbidden / Yetki) Hatasi Cozum Rehberi:
+1. NuGet.org API Key ile PSGallery API Key AYNI DEGILDIR!
+   - PowerShell Gallery icin ayri bir hesap ve API Key gerekir: https://www.powershellgallery.com/account/apikeys
+2. API Key Yetkisi (Scope):
+   - 'pwxe' paketi PSGallery'de henuz HIC YAYINLANMADI (yeni paket).
+   - API Key olustururken 'Push new packages and package versions' secilmelidir!
+   - 'Push new package versions only' seciliyse yeni paket yuklenemez (403 verir).
+3. Glob Pattern:
+   - Glob pattern alani '*' veya 'pwxe*' olmalidir.
+--------------------------------------------------------------------------------
+"@
                 }
+                $psGalleryStatus = "Hata: $errText"
             }
             finally {
+                $env:DOTNET_CLI_UI_LANGUAGE = $savedLang.D; $env:VSLANG = $savedLang.V
+                [System.Threading.Thread]::CurrentThread.CurrentCulture = $savedCulture
+                [System.Threading.Thread]::CurrentThread.CurrentUICulture = $savedUICulture
                 Remove-Item -Path $stageParent -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
@@ -355,14 +424,14 @@ if ($needNuGet) {
         $nugetStatus = "Key Yok (Atlandi)"
     } else {
         if ($DryRun) {
-            Write-Color "[DRY-RUN] dotnet nuget push $($PackageFile.FullName) --source https://api.nuget.org/v3/index.json --skip-duplicate" Magenta
+            Write-Color "[DRY-RUN] dotnet nuget push $($PackageFile.FullName) --source https://api.nuget.org/v3/index.json --api-key [GIZLI]" Magenta
             $nugetStatus = "DryRun (Basarili)"
         } else {
             try {
                 Write-Host "NuGet.org'a yukleniyor ($($PackageFile.Name))..."
                 $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
                 if ($dotnetCmd) {
-                    dotnet nuget push $PackageFile.FullName --source https://api.nuget.org/v3/index.json --api-key $NuGetApiKey --skip-duplicate
+                    dotnet nuget push $PackageFile.FullName --source https://api.nuget.org/v3/index.json --api-key $NuGetApiKey
                     if ($LASTEXITCODE -eq 0) {
                         Write-Success "NuGet.org'a basariyla yayinlandi!"
                         $nugetStatus = "Basarili"
@@ -371,7 +440,7 @@ if ($needNuGet) {
                         $nugetStatus = "Basarisiz (Kod $LASTEXITCODE)"
                     }
                 } elseif (Test-Path $NugetExePath) {
-                    & $NugetExePath push $PackageFile.FullName $NuGetApiKey -Source https://api.nuget.org/v3/index.json -SkipDuplicate
+                    & $NugetExePath push $PackageFile.FullName $NuGetApiKey -Source https://api.nuget.org/v3/index.json
                     if ($LASTEXITCODE -eq 0) {
                         Write-Success "nuget.exe ile NuGet.org'a basariyla yayinlandi!"
                         $nugetStatus = "Basarili"
@@ -401,4 +470,9 @@ $summary = [PSCustomObject]@{
 }
 $summary | Format-List
 
+$failed = ($psGalleryStatus -match '^(Hata|Basarisiz)') -or ($nugetStatus -match '^(Hata|Basarisiz)')
+if ($failed) {
+    Write-Color "`nIslem HATALARLA tamamlandi." Red
+    exit 1
+}
 Write-Color "`nIslem Tamamlandi." Green
