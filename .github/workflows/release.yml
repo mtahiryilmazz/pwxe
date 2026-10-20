@@ -8,7 +8,8 @@ on:
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  packages: write
 
 jobs:
   publish:
@@ -59,3 +60,13 @@ jobs:
               dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --skip-duplicate
             }
           }
+
+      - name: Publish to GitHub Packages
+        shell: pwsh
+        run: |
+          $packages = Get-ChildItem -Path ./artifacts -Filter *.nupkg
+          foreach ($pkg in $packages) {
+            Write-Host "Publishing $($pkg.FullName) to GitHub Packages..."
+            dotnet nuget push $pkg.FullName --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
+          }
+

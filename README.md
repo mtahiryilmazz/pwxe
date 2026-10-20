@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.2-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.3-blue.svg?style=flat-square" alt="Latest Release"></a>
   <a href="https://www.powershellgallery.com/packages/pwxe"><img src="https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery" alt="PowerShell Gallery: pwxe"></a>
   <a href="https://www.nuget.org/packages/pwxe"><img src="https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet" alt="NuGet: pwxe"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>

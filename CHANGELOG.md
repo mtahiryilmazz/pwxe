@@ -10,6 +10,12 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ## [Unreleased]
 
+## [1.6.3] — 2026-10-20
+
+### Changed
+- **Synchronization with PwX Studio v1.6.3:** Aligned core build engine metadata, release packaging, and automated publishing pipeline with PwX Studio v1.6.3.
+- Maintained clean InvariantCulture / English ASCII formatting for packaging stability across PowerShell Gallery and NuGet.org.
+
 ## [1.6.2] — 2026-10-20
 
 ### Fixed
