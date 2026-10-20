@@ -6,11 +6,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.1-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.2-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://www.powershellgallery.com/packages/pwxe"><img src="https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery" alt="PowerShell Gallery: pwxe"></a>
+  <a href="https://www.nuget.org/packages/pwxe"><img src="https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet" alt="NuGet: pwxe"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=flat-square" alt="Platform: Windows">
   <img src="https://img.shields.io/badge/PowerShell-5.1%20%7C%207.4%2B-5391FE.svg?style=flat-square" alt="PowerShell 5.1 & 7.4+">
-  <img src="https://img.shields.io/badge/PSGallery-pwxe-success.svg?style=flat-square" alt="PowerShell Gallery: pwxe">
 </p>
 
 ---
@@ -43,14 +44,27 @@ The engine supports x86/x64, administrator execution, DPI awareness, Windows com
 
 The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target machine only needs the runtime listed above.
 
-## 📥 Installation
-
-From **PowerShell Gallery**:
+## 📥 Installation & Usage
+ 
+### From PowerShell Gallery (Recommended)
 ```powershell
+# PowerShell 7+ (Modern PSResourceGet)
+Install-PSResource -Name pwxe -Scope CurrentUser
+
+# PowerShell 5.1 / PowerShellGet
 Install-Module -Name pwxe -Scope CurrentUser
 ```
 
-Or clone directly from GitHub:
+### From NuGet.org
+```powershell
+# Using dotnet CLI
+dotnet add package pwxe
+
+# Using NuGet CLI
+nuget install pwxe
+```
+
+### From GitHub Repository
 ```powershell
 git clone https://github.com/mtahiryilmazz/pwxe.git
 Import-Module .\pwxe\pwxe.psd1
