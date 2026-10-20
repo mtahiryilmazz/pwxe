@@ -51,6 +51,26 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# Windows PowerShell 5.1 yerlesik SSL/TLS hatasi vermesin diye sistemde PowerShell 7 (pwsh) varsa otomatik devret
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshCmd) {
+        Write-Host "[BILGI] Windows PowerShell 5.1 algilandi. SSL/TLS sorunlarini onlemek icin PowerShell 7 (pwsh) ile calistiriliyor...`n" -ForegroundColor Cyan
+        $cliArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+        foreach ($k in $PSBoundParameters.Keys) {
+            $val = $PSBoundParameters[$k]
+            if ($val -is [switch]) {
+                if ($val.IsPresent) { $cliArgs += "-$k" }
+            } else {
+                $cliArgs += "-$k"
+                $cliArgs += "$val"
+            }
+        }
+        & $pwshCmd.Source @cliArgs
+        exit $LASTEXITCODE
+    }
+}
+
 # Konsol cikti kodlamasini ayarla
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
