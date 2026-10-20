@@ -1,4 +1,4 @@
-﻿// PwX Build Engine - PowerShell 7 host
+// PwX Build Engine - PowerShell 7 host
 // Gomulu payload.ps1 dosyasini benzersiz gecici klasore cikarir, PowerShell SDK ile calistirir,
 // betigin cikis kodunu dondurur ve gecici klasoru temizler.
 using System;
@@ -226,12 +226,12 @@ namespace PwX.BuildHost
 
             public override Dictionary<string, PSObject> Prompt(string caption, string message, Collection<FieldDescription> descriptions)
             {
-                throw new NotSupportedException("GUI modunda etkileşimli istem desteklenmez.");
+                throw new NotSupportedException("Interactive prompts are not supported in GUI mode.");
             }
 
             public override PSCredential PromptForCredential(string caption, string message, string userName, string targetName)
             {
-                throw new NotSupportedException("GUI modunda kimlik bilgisi istemi desteklenmez.");
+                throw new NotSupportedException("Credential prompts are not supported in GUI mode.");
             }
 
             public override PSCredential PromptForCredential(string caption, string message, string userName, string targetName, PSCredentialTypes allowedCredentialTypes, PSCredentialUIOptions options)

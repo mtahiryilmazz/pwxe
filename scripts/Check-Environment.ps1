@@ -1,7 +1,7 @@
-﻿<#
+<#
 .SYNOPSIS
-  PwX Build Engine ortam kontrolü (Roadmap Aşama 1).
-  Windows PowerShell 5.1, pwsh, .NET SDK ve csc.exe varlığını raporlar. Sistemde hiçbir şeyi değiştirmez.
+  PwX Build Engine environment check (Phase 1).
+  Reports availability of Windows PowerShell 5.1, pwsh, .NET SDK, and csc.exe. Does not modify system.
 #>
 [CmdletBinding()]
 param([switch]$Json)
@@ -35,14 +35,14 @@ $r.NuGetOrgReachable  = try { (Invoke-WebRequest 'https://api.nuget.org/v3/index
 
 if ($Json) { $r | ConvertTo-Json -Depth 4; return }
 
-Write-Host "`n=== PwX Build Engine - Ortam Kontrolü ===" -ForegroundColor Cyan
+Write-Host "`n=== PwX Build Engine - Environment Check ===" -ForegroundColor Cyan
 foreach ($k in $r.Keys) {
     $v = $r[$k]; if ($v -is [array]) { $v = ($v -join ', ') }
     $ok = ($null -ne $v -and $v -ne '' -and $v -ne $false)
     Write-Host ('{0,-22} {1}' -f $k, $v) -ForegroundColor $(if ($ok) { 'Green' } else { 'Yellow' })
 }
 Write-Host ''
-if (-not $r.Backend_PS7_Ready)  { Write-Host "PS7 backend için .NET SDK 8+ gerekli (https://dotnet.microsoft.com/download)." -ForegroundColor Yellow }
-if (-not $r.Backend_PS51_Ready) { Write-Host "PS 5.1 backend için powershell.exe ve .NET Framework csc.exe gerekli." -ForegroundColor Yellow }
-if ($r.Backend_PS7_Ready -and -not $r.NuGetOrgReachable) { Write-Host "NuGet'e erişilemiyor: PS7 derlemesi paket geri yükleyemez (ilk derleme internet ister)." -ForegroundColor Yellow }
+if (-not $r.Backend_PS7_Ready)  { Write-Host "PS7 backend requires .NET SDK 8+ (https://dotnet.microsoft.com/download)." -ForegroundColor Yellow }
+if (-not $r.Backend_PS51_Ready) { Write-Host "PS 5.1 backend requires powershell.exe and .NET Framework csc.exe." -ForegroundColor Yellow }
+if ($r.Backend_PS7_Ready -and -not $r.NuGetOrgReachable) { Write-Host "NuGet unreachable: PS7 build cannot restore packages (first build requires internet)." -ForegroundColor Yellow }
 if (-not ($r.Backend_PS51_Ready -or $r.Backend_PS7_Ready)) { exit 1 }

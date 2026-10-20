@@ -1,6 +1,6 @@
-﻿// PwX Build Engine - Windows PowerShell 5.1 baslatici (C# 5 uyumlu; .NET Framework csc.exe ile derlenir)
-// Gomulu betigi benzersiz gecici klasore UTF-8 BOM'lu cikarir, sistemdeki powershell.exe ile calistirir,
-// cikis kodunu aktarir ve gecici klasoru siler. Windows PowerShell 5.1 hedef makinede MEVCUT olmalidir.
+// PwX Build Engine - Windows PowerShell 5.1 launcher (C# 5 compatible; compiles with .NET Framework csc.exe)
+// Extracts embedded script to unique temp folder with UTF-8 BOM, launches via system powershell.exe,
+// propagates exit code, and cleans up temp folder. Windows PowerShell 5.1 must be present on target machine.
 using System;
 using System.Diagnostics;
 using System.IO;

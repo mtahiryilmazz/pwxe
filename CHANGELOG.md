@@ -10,6 +10,13 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ## [Unreleased]
 
+## [1.6.1] — 2026-10-20
+
+### Changed
+- Standardized all CLI diagnostic messages, logs, and internal exception strings to clean English ASCII to eliminate character encoding/locale issues across all operating systems.
+- Bumped version to 1.6.1 for NuGet and PowerShell Gallery publishing.
+- Enhanced GitHub Actions release workflow with OIDC and automated package distribution.
+
 ## [1.6.0] — 2026-10-19
 
 ### Added

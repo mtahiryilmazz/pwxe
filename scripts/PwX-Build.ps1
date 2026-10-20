@@ -1,15 +1,15 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  PwX Build Engine - Bağımsız .ps1 -> .exe dönüştürücü (komut satırı).
+  PwX Build Engine - Standalone .ps1 -> .exe converter (CLI).
 .DESCRIPTION
-  Kaynak betiği DERLEME SIRASINDA ÇALIŞTIRMADAN; yalnızca sözdizimini ayrıştırır.
+  Parses source script syntax WITHOUT EXECUTING it during compilation.
   PS7   : src\PwX.BuildHost.PS7 (PowerShell SDK host) -> dotnet publish
-  PS51  : src\PwX.BuildHost.PS51 (C# başlatıcı)       -> .NET Framework csc.exe
+  PS51  : src\PwX.BuildHost.PS51 (C# launcher)        -> .NET Framework csc.exe
 .EXAMPLE
   .\scripts\PwX-Build.ps1 -Source .\tests\samples\hello.ps1 -Output .\out\hello.exe -Target PS7 -SingleFile
 .EXAMPLE
-  .\scripts\PwX-Build.ps1 -Source .\app.ps1 -Target PS51 -Mode Gui -Icon .\app.ico -ProductName "Uygulamam"
+  .\scripts\PwX-Build.ps1 -Source .\app.ps1 -Target PS51 -Mode Gui -Icon .\app.ico -ProductName "MyApp"
 #>
 [CmdletBinding()]
 param(
@@ -26,14 +26,14 @@ param(
     [string]$Description,
     [string]$FileVersion = '1.0.0.0',
     [string]$ProductVersion,
-    [string]$PsSdkVersion = '7.4.6',   # Roadmap 4.4: sürümü doğrulayıp sabitle
+    [string]$PsSdkVersion = '7.4.6',   # Roadmap 4.4: pinned tested version
     [string]$Framework = 'net8.0',     # PS SDK 7.4.x -> net8.0
     [string]$LogPath,
     [switch]$Force,
     [switch]$KeepTemp,
     [switch]$EnableTrim,
     [switch]$EnableUpx,
-    [switch]$AutoInstallPrereqs,  # PS7: eksik .NET SDK 8+ / NuGet kaynağını otomatik kur/düzelt
+    [switch]$AutoInstallPrereqs,  # PS7: auto-install missing .NET SDK 8+ / repair NuGet source
     [bool]$Admin = $false,
     [bool]$Utf8 = $true,
     [bool]$Unicode = $false,
@@ -53,7 +53,7 @@ $script:EnvSaved = $null
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $script:Utf8Bom   = New-Object System.Text.UTF8Encoding($true)
 
-# ---------------------------------------------------------------- yardımcılar
+# ---------------------------------------------------------------- Helpers
 function Write-Log {
     param([string]$Msg, [ValidateSet('Info', 'Warning', 'Error', 'Debug')][string]$Level = 'Info')
     $line = '[{0:HH:mm:ss}] [{1}] {2}' -f (Get-Date), $Level.ToUpperInvariant(), $Msg
@@ -62,13 +62,13 @@ function Write-Log {
         'Info'    { Write-Host $line }
         'Warning' { Write-Host $line -ForegroundColor Yellow }
         'Error'   { Write-Host $line -ForegroundColor Red }
-        'Debug'   { }   # yalnızca günlük dosyasına
+        'Debug'   { }   # Log file only
     }
 }
 function Add-Diag {
     param([string]$Severity, [string]$Code, [string]$Message, [int]$Line = 0, [int]$Column = 0)
     $script:Diags.Add([pscustomobject]@{ Severity = $Severity; Code = $Code; Message = $Message; SourcePath = $script:SrcPath; Line = $Line; Column = $Column })
-    $loc = if ($Line -gt 0) { " (satır $Line, sütun $Column)" } else { '' }
+    $loc = if ($Line -gt 0) { " (line $Line, col $Column)" } else { '' }
     Write-Log "$Code $Message$loc" $Severity
 }
 function Stop-Build { param([string]$Code, [string]$Message, [int]$Line = 0, [int]$Column = 0)
@@ -96,13 +96,14 @@ function Get-ScriptText {
         return $strict.GetString($bytes, $start, $bytes.Length - $start)
     }
     catch {
-        Add-Diag 'Warning' 'PWX2001' 'Kaynak geçerli UTF-8 değil; Windows-1254 (Türkçe) olarak okundu. Dosyayı UTF-8 BOM ile kaydetmeniz önerilir.'
-        try { $enc = [Text.Encoding]::GetEncoding(1254) } catch { $enc = [Text.Encoding]::GetEncoding(28599) }
+        Add-Diag 'Warning' 'PWX2001' 'Source is not valid UTF-8; reading as fallback encoding. Saving source with UTF-8 BOM is recommended.'
+        try { $enc = [Text.Encoding]::GetEncoding(1252) } catch { $enc = [Text.Encoding]::Default }
         return $enc.GetString($bytes)
     }
 }
 function ConvertTo-CsLiteral { param([string]$s) if ($null -eq $s) { $s = '' }; ($s -replace '\\', '\\' -replace '"', '\"' -replace "[\r\n]+", ' ') }
 function ConvertTo-XmlText   { param([string]$s) [Security.SecurityElement]::Escape($s) }
+
 function New-AppManifest {
     param([string]$Path, [bool]$RequireAdmin, [bool]$DpiAware, [bool]$OsSupport, [bool]$LongPathAware)
     $execution = if ($RequireAdmin) { 'requireAdministrator' } else { 'asInvoker' }
@@ -121,7 +122,7 @@ function New-AppConfig {
     [IO.File]::WriteAllText($Path, $xml, $script:Utf8NoBom)
 }
 
-# ---------------------------------------------------------------- PS7 gereksinimleri
+# ---------------------------------------------------------------- PS7 prerequisites
 function Invoke-NativeLines {
     param([string]$File, [string[]]$Arguments)
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
@@ -133,7 +134,6 @@ function Invoke-NativeLines {
     [pscustomobject]@{ Code = $code; Lines = $out }
 }
 function Get-DotnetSdkInfo {
-    # 'dotnet' komutu yalnızca runtime ile de bulunur; gerçek bir SDK (8+) aranır.
     $cands = New-Object System.Collections.Generic.List[string]
     $cmd = Get-Command dotnet -ErrorAction SilentlyContinue
     if ($cmd) { $cands.Add($cmd.Source) }
@@ -153,28 +153,27 @@ function Get-DotnetSdkInfo {
     return $null
 }
 function Install-DotnetSdk8 {
-    # 1) winget  2) yedek: Microsoft'un resmi dotnet-install.ps1 betiği (kullanıcı klasörüne, yönetici gerektirmez)
     $winget = Get-Command winget -ErrorAction SilentlyContinue
     if ($winget) {
-        Write-Log '.NET SDK 8 winget ile kuruluyor (yönetici onayı istenebilir, birkaç dakika sürebilir)...'
+        Write-Log 'Installing .NET SDK 8 via winget (may require elevation, may take a few minutes)...'
         $r = Invoke-NativeLines $winget.Source @('install', '--id', 'Microsoft.DotNet.SDK.8', '--exact', '--silent', '--accept-package-agreements', '--accept-source-agreements')
         foreach ($l in $r.Lines) { Write-Log $l 'Debug' }
         $info = Get-DotnetSdkInfo
         if ($info) { return $info }
-        Write-Log "winget kurulumu doğrulanamadı (çıkış kodu $($r.Code)); yedek yöntem deneniyor." 'Warning'
+        Write-Log "winget installation could not be verified (exit code $($r.Code)); trying fallback method." 'Warning'
     }
-    else { Write-Log 'winget bulunamadı; yedek yöntem (dotnet-install.ps1) kullanılacak.' 'Warning' }
+    else { Write-Log 'winget not found; using fallback method (dotnet-install.ps1).' 'Warning' }
     try {
         $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet'
         $tmp = Join-Path ([IO.Path]::GetTempPath()) 'dotnet-install.ps1'
-        try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { Write-Log "TLS 1.2 etkinleştirilemedi: $($_.Exception.Message)" 'Debug' }
-        Write-Log ".NET SDK 8, resmi dotnet-install.ps1 ile kullanıcı klasörüne kuruluyor: $dir"
+        try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { Write-Log "Could not set TLS 1.2: $($_.Exception.Message)" 'Debug' }
+        Write-Log "Installing .NET SDK 8 via official dotnet-install.ps1 to user directory: $dir"
         Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $tmp -UseBasicParsing
         $psExe = (Get-Command powershell.exe -ErrorAction Stop).Source
         $r = Invoke-NativeLines $psExe @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmp, '-Channel', '8.0', '-InstallDir', $dir)
         foreach ($l in $r.Lines) { Write-Log $l 'Debug' }
     }
-    catch { Write-Log "Yedek kurulum başarısız: $($_.Exception.Message)" 'Warning' }
+    catch { Write-Log "Fallback installation failed: $($_.Exception.Message)" 'Warning' }
     return (Get-DotnetSdkInfo)
 }
 function Get-NuGetSources {
@@ -193,7 +192,6 @@ function Get-NuGetSources {
     [pscustomobject]@{ Sources = $list.ToArray(); NoneFound = (($r.Lines -join "`n") -match 'No sources found') }
 }
 function Test-NuGetReady {
-    # Yalnızca KESİN "etkin kaynak yok" durumunda $false döner; çıktı ayrıştırılamazsa engellemez.
     param([string]$DotnetExe)
     $s = Get-NuGetSources $DotnetExe
     $enabled = @($s.Sources | Where-Object { $_.Enabled })
@@ -202,7 +200,6 @@ function Test-NuGetReady {
     return $true
 }
 function Repair-NuGetSources {
-    # Kullanıcı düzeyindeki NuGet.Config'e nuget.org ekler veya devre dışı nuget.org'u etkinleştirir.
     param([string]$DotnetExe)
     $s = Get-NuGetSources $DotnetExe
     $org = @($s.Sources | Where-Object { $_.Url -match 'api\.nuget\.org' }) | Select-Object -First 1
@@ -216,82 +213,85 @@ function Repair-NuGetSources {
     return (Test-NuGetReady $DotnetExe)
 }
 
-
-# ---------------------------------------------------------------- ana akış
+# ---------------------------------------------------------------- Main build pipeline
 $sw = [Diagnostics.Stopwatch]::StartNew()
 $workDir = $null
 $result = [ordered]@{ Success = $false; OutputPath = $null; Target = $Target; Duration = $null; OutputSize = 0; LogPath = $null; Diagnostics = $script:Diags }
 $script:SrcPath = $Source
 
 try {
-    # günlük
+    # Logging setup
     if (-not $LogPath) { $LogPath = Join-Path $script:Root ('artifacts\logs\build-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date)) }
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
     $script:LogFile = $LogPath
     $result.LogPath = $LogPath
-    Write-Log "PwX Build Engine başlıyor. Hedef=$Target Mod=$Mode Runtime=$RuntimeMode"
+    Write-Log "PwX Build Engine starting. Target=$Target Mode=$Mode Runtime=$RuntimeMode"
 
-    # 1) kaynak
-    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { Stop-Build 'PWX1001' "Kaynak dosya bulunamadı: $Source" }
+    # 1) Source validation
+    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { Stop-Build 'PWX1001' "Source file not found: $Source" }
     $src = (Resolve-Path -LiteralPath $Source).ProviderPath
     $script:SrcPath = $src
-    if ([IO.Path]::GetExtension($src) -ne '.ps1') { Add-Diag 'Warning' 'PWX1002' 'Kaynak dosyanın uzantısı .ps1 değil.' }
+    if ([IO.Path]::GetExtension($src) -ne '.ps1') { Add-Diag 'Warning' 'PWX1002' 'Source file extension is not .ps1.' }
 
-    # 2) çıktı yolu
+    # 2) Output path resolution
     if (-not $Output) { $Output = [IO.Path]::ChangeExtension($src, '.exe') }
     if (-not [IO.Path]::GetExtension($Output)) { $Output += '.exe' }
     $Output = [IO.Path]::GetFullPath($(if ([IO.Path]::IsPathRooted($Output)) { $Output } else { Join-Path (Get-Location).ProviderPath $Output }))
-    if ($Output -ieq $src) { Stop-Build 'PWX1004' 'Çıktı yolu kaynak dosyayla aynı olamaz.' }
+    if ($Output -ieq $src) { Stop-Build 'PWX1004' 'Output path cannot be identical to source file.' }
     $outDir = Split-Path -Parent $Output
-    try { New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          $probe = Join-Path $outDir ('.pwx-probe-' + [guid]::NewGuid().ToString('N')); [IO.File]::WriteAllText($probe, 'x'); Remove-Item -LiteralPath $probe -Force }
-    catch { Stop-Build 'PWX1005' "Çıktı klasörü yazılabilir değil: $outDir" }
+    try {
+        New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+        $probe = Join-Path $outDir ('.pwx-probe-' + [guid]::NewGuid().ToString('N'))
+        [IO.File]::WriteAllText($probe, 'x')
+        Remove-Item -LiteralPath $probe -Force
+    }
+    catch { Stop-Build 'PWX1005' "Output directory is not writable: $outDir" }
     $baseName = [IO.Path]::GetFileNameWithoutExtension($Output)
 
-    # 3) metaveri doğrulama
-    if ($FileVersion -notmatch '^\d+(\.\d+){1,3}$') { Stop-Build 'PWX1007' "FileVersion geçersiz: $FileVersion (örn. 1.2.3.4)" }
+    # 3) Metadata validation
+    if ($FileVersion -notmatch '^\d+(\.\d+){1,3}$') { Stop-Build 'PWX1007' "FileVersion is invalid: $FileVersion (e.g. 1.2.3.4)" }
     if (-not $ProductVersion) { $ProductVersion = $FileVersion }
     if (-not $ProductName) { $ProductName = $baseName }
     $iconFull = $null
     if ($Icon) {
-        if (-not (Test-Path -LiteralPath $Icon -PathType Leaf)) { Stop-Build 'PWX1008' "İkon bulunamadı: $Icon" }
+        if (-not (Test-Path -LiteralPath $Icon -PathType Leaf)) { Stop-Build 'PWX1008' "Icon file not found: $Icon" }
         $iconFull = (Resolve-Path -LiteralPath $Icon).ProviderPath
         $hdr = [IO.File]::ReadAllBytes($iconFull)
-        if ($hdr.Length -lt 6 -or $hdr[0] -ne 0 -or $hdr[1] -ne 0 -or $hdr[2] -ne 1 -or $hdr[3] -ne 0) { Stop-Build 'PWX1009' 'İkon geçerli bir .ico dosyası değil.' }
+        if ($hdr.Length -lt 6 -or $hdr[0] -ne 0 -or $hdr[1] -ne 0 -or $hdr[2] -ne 1 -or $hdr[3] -ne 0) { Stop-Build 'PWX1009' 'Icon file is not a valid .ico file.' }
     }
 
-    # 4) sözdizimi (ÇALIŞTIRMADAN)
+    # 4) Syntax parsing (WITHOUT EXECUTING)
     $tokens = $null; $errs = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile($src, [ref]$tokens, [ref]$errs)
     if ($errs -and $errs.Count -gt 0) {
         foreach ($e in $errs) { Add-Diag 'Error' 'PWX1003' $e.Message $e.Extent.StartLineNumber $e.Extent.StartColumnNumber }
         throw 'PWX_BUILD_FAILED'
     }
-    Write-Log 'Sözdizimi kontrolü başarılı.'
+    Write-Log 'Syntax check passed.'
 
-    # 5) mevcut çıktıyı koru
+    # 5) Destination safety checks
     $finalExe = $Output
     $distDir = $null
     if ($Target -eq 'PS7' -and -not $SingleFile) {
         $distDir = Join-Path $outDir $baseName
         $finalExe = Join-Path $distDir ($baseName + '.exe')
-        if ((Test-Path -LiteralPath $distDir) -and -not $Force) { Stop-Build 'PWX1006' "Hedef klasör zaten var: $distDir (üzerine yazmak için -Force)" }
-        if ((Test-Path -LiteralPath $distDir) -and -not (Test-Path -LiteralPath (Join-Path $distDir '.pwx-build'))) { Stop-Build 'PWX1006' "Hedef klasör PwX tarafından oluşturulmamış, silinm[...]" }
+        if ((Test-Path -LiteralPath $distDir) -and -not $Force) { Stop-Build 'PWX1006' "Target folder already exists: $distDir (use -Force to overwrite)" }
+        if ((Test-Path -LiteralPath $distDir) -and -not (Test-Path -LiteralPath (Join-Path $distDir '.pwx-build'))) { Stop-Build 'PWX1006' "Target folder was not created by PwX, refusing to delete: $distDir" }
     }
-    elseif ((Test-Path -LiteralPath $Output) -and -not $Force) { Stop-Build 'PWX1006' "Çıktı dosyası zaten var: $Output (üzerine yazmak için -Force)" }
+    elseif ((Test-Path -LiteralPath $Output) -and -not $Force) { Stop-Build 'PWX1006' "Output file already exists: $Output (use -Force to overwrite)" }
 
-    # 6) benzersiz geçici çalışma alanı
+    # 6) Unique temporary workspace
     $workDir = Join-Path ([IO.Path]::GetTempPath()) ('pwx-build-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $workDir | Out-Null
-    Write-Log "Çalışma alanı: $workDir" 'Debug'
+    Write-Log "Workspace: $workDir" 'Debug'
     $manifest = $null
     if ($Admin -or $Dpi -or $SupportOS -or $LongPaths) {
         $manifest = Join-Path $workDir 'app.manifest'
         New-AppManifest $manifest $Admin $Dpi $SupportOS $LongPaths
-        Write-Log "Windows uygulama bildirimi üretildi (Admin=$Admin, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
+        Write-Log "Windows application manifest generated (Admin=$Admin, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
     }
 
-    # 7) payload: UTF-8 BOM ile normalize et (Türkçe karakter güvenliği)
+    # 7) Payload: normalize with UTF-8 BOM
     $payload = Join-Path $workDir 'payload.ps1'
     [IO.File]::WriteAllText($payload, (Get-ScriptText $src), $script:Utf8Bom)
 
@@ -299,35 +299,33 @@ try {
 
     if ($Target -eq 'PS7') {
         # ------------------------------------------------ PowerShell 7 backend
-        # Mod doğrulamaları
         if ($EnableTrim -and $RuntimeMode -ne 'SelfContained') {
-            Stop-Build 'PWX3007' '-EnableTrim yalnızca -RuntimeMode SelfContained ile kullanılabilir (trimming self-contained gerektirir). Not: PowerShell SDK reflection kullandığı için trimming deneyseldir.'
+            Stop-Build 'PWX3007' '-EnableTrim can only be used with -RuntimeMode SelfContained. Note: Trimming is experimental for PowerShell SDK.'
         }
         if ($RuntimeMode -eq 'FrameworkDependent') {
             $needs = if ($Mode -eq 'Gui') { '.NET 8 Desktop Runtime (Microsoft.WindowsDesktop.App 8.x)' } else { '.NET 8 Runtime (Microsoft.NETCore.App 8.x)' }
-            Write-Log "UYARI: FrameworkDependent çıktı, çalışacağı bilgisayarda $needs gerektirir. pwsh gerekmez; PowerShell motoru çıktıya dahildir." 'Warning'
+            Write-Log "WARNING: FrameworkDependent output requires $needs on target machine. pwsh is not required; PowerShell engine is included." 'Warning'
         }
 
-        # PS7 hedefi gereksinimleri: gerçek bir .NET SDK (8+) ve etkin bir NuGet paket kaynağı.
         $script:EnvSaved = @{ DOTNET_CLI_UI_LANGUAGE = $env:DOTNET_CLI_UI_LANGUAGE; VSLANG = $env:VSLANG }
-        $env:DOTNET_CLI_UI_LANGUAGE = 'en'; $env:VSLANG = '1033'   # ayrıştırılabilir, kodlama sorunsuz çıktı
+        $env:DOTNET_CLI_UI_LANGUAGE = 'en'; $env:VSLANG = '1033'
         $sdkInfo = Get-DotnetSdkInfo
         if (-not $sdkInfo) {
-            if (-not $AutoInstallPrereqs) { Stop-Build 'PWX3005' '.NET SDK 8+ kurulu değil (yalnızca runtime yetmez). Otomatik kurulum için -AutoInstallPrereqs kullanın veya: winget install Microsoft.DotNet.SDK.8' }
-            Write-Log '.NET SDK 8+ bulunamadı; otomatik kurulum başlatılıyor...' 'Warning'
+            if (-not $AutoInstallPrereqs) { Stop-Build 'PWX3005' '.NET SDK 8+ is not installed. Use -AutoInstallPrereqs or install manually: winget install Microsoft.DotNet.SDK.8' }
+            Write-Log '.NET SDK 8+ not found; starting automatic installation...' 'Warning'
             $sdkInfo = Install-DotnetSdk8
-            if (-not $sdkInfo) { Stop-Build 'PWX3005' '.NET SDK 8 otomatik kurulamadı. Elle kurun: winget install Microsoft.DotNet.SDK.8 (veya https://aka.ms/dotnet/download)' }
-            Write-Log ".NET SDK $($sdkInfo.Version) kuruldu."
+            if (-not $sdkInfo) { Stop-Build 'PWX3005' '.NET SDK 8 could not be installed automatically. Install manually: winget install Microsoft.DotNet.SDK.8' }
+            Write-Log ".NET SDK $($sdkInfo.Version) installed."
         }
         $dotnet = [pscustomobject]@{ Source = $sdkInfo.Path }
         Write-Log ".NET SDK $($sdkInfo.Version): $($sdkInfo.Path)" 'Debug'
         if (-not (Test-NuGetReady $sdkInfo.Path)) {
-            if (-not $AutoInstallPrereqs) { Stop-Build 'PWX3006' 'Etkin bir NuGet paket kaynağı yok; PowerShell SDK paketleri indirilemez. Otomatik düzeltme için -AutoInstallPrereqs kullanın veya: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org' }
-            Write-Log 'Etkin NuGet kaynağı yok; nuget.org ekleniyor/etkinleştiriliyor (kullanıcı düzeyi ayar)...' 'Warning'
-            if (-not (Repair-NuGetSources $sdkInfo.Path)) { Stop-Build 'PWX3006' 'NuGet kaynağı düzeltilemedi. Elle: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org' }
+            if (-not $AutoInstallPrereqs) { Stop-Build 'PWX3006' 'No active NuGet package source; cannot restore PowerShell SDK. Use -AutoInstallPrereqs or run: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org' }
+            Write-Log 'No active NuGet source found; adding/enabling nuget.org...' 'Warning'
+            if (-not (Repair-NuGetSources $sdkInfo.Path)) { Stop-Build 'PWX3006' 'Could not repair NuGet source. Run: dotnet nuget add source https://api.nuget.org/v3/index.json -n nuget.org' }
         }
         $hostSrc = Join-Path $script:Root 'src\PwX.BuildHost.PS7'
-        if (-not (Test-Path -LiteralPath $hostSrc)) { Stop-Build 'PWX3002' "Host projesi bulunamadı: $hostSrc" }
+        if (-not (Test-Path -LiteralPath $hostSrc)) { Stop-Build 'PWX3002' "Host project not found: $hostSrc" }
         $hostDir = Join-Path $workDir 'host'
         Copy-Item -LiteralPath $hostSrc -Destination $hostDir -Recurse
         Get-ChildItem -LiteralPath $hostDir -Include bin, obj -Recurse -Directory -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
@@ -358,25 +356,25 @@ try {
         $pa += $(if ($RuntimeMode -eq 'SelfContained') { @('--self-contained', 'true') } else { @('--self-contained', 'false') })
         if ($SingleFile) { $pa += @('-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:IncludeAllContentForSelfExtract=true') }
         if ($EnableTrim) {
-            Write-Log 'UYARI: -EnableTrim deneyseldir; PowerShell reflection kullandığından çıktıyı mutlaka test edin.' 'Warning'
+            Write-Log 'WARNING: -EnableTrim is experimental; verify output before distribution.' 'Warning'
             $pa += @('-p:PublishTrimmed=true')
         }
 
-        Write-Log "dotnet publish çalışıyor (ilk çalıştırmada PowerShell SDK indirilir; birkaç dakika sürebilir)..."
+        Write-Log "dotnet publish running (PowerShell SDK packages will be downloaded on first run)..."
         $code = Invoke-Native $dotnet.Source $pa $workDir
         if ($code -ne 0) {
             $why = ''
             $logText = ''
-            try { $logText = [IO.File]::ReadAllText($script:LogFile) } catch { Write-Log "Günlük dosyası okunamadı (hata nedeni çıkarımı atlandı): $($_.Exception.Message)" 'Debug' }
-            if ($logText -match 'NU1301') { $why = ' NuGet sunucusuna ulaşılamadı (internet, proxy veya güvenlik duvarını kontrol edin).' }
-            elseif ($logText -match 'NU110[01]') { $why = ' NuGet paketleri çözümlenemedi (etkin paket kaynağı yok ya da kaynakta paket bulunamadı); kontrol: dotnet nuget list source' }
-            Stop-Build 'PWX3003' "dotnet publish başarısız (çıkış kodu $code).$why Ayrıntı için günlüğe bakın: $LogPath"
+            try { $logText = [IO.File]::ReadAllText($script:LogFile) } catch { Write-Log "Could not read log file: $($_.Exception.Message)" 'Debug' }
+            if ($logText -match 'NU1301') { $why = ' Unable to reach NuGet server (check internet connection or proxy).' }
+            elseif ($logText -match 'NU110[01]') { $why = ' Could not resolve NuGet packages; verify source: dotnet nuget list source' }
+            Stop-Build 'PWX3003' "dotnet publish failed (exit code $code).$why See log for details: $LogPath"
         }
 
         $built = Join-Path $pub 'PwXApp.exe'
-        if (-not (Test-Path -LiteralPath $built)) { Stop-Build 'PWX3004' 'Yayın çıktısında PwXApp.exe bulunamadı.' }
+        if (-not (Test-Path -LiteralPath $built)) { Stop-Build 'PWX3004' 'PwXApp.exe not found in publish output.' }
 
-        # PowerShell SDK Core yerleşik modüllerini ($PSHOME\Modules) yayın çıktısına yerleştir
+        # Deploy built-in PowerShell modules ($PSHOME\Modules) to output
         $runtimesMod = Join-Path $pub "runtimes\win\lib\$Framework\Modules"
         if (-not (Test-Path -LiteralPath $runtimesMod)) {
             $runtimesMod = Join-Path $pub "runtimes\win\lib\net8.0\Modules"
@@ -402,18 +400,18 @@ try {
             New-AppConfig $configPath
         }
 
-        # Opsiyonel (deneysel): UPX sıkıştırma
+        # Optional: UPX compression
         if ($EnableUpx) {
             $upx = Get-Command upx -ErrorAction SilentlyContinue
-            if (-not $upx) { Write-Log 'UPX bulunamadı; sıkıştırma atlandı.' 'Warning' }
-            elseif ($SingleFile) { Write-Log 'UPX atlandı: tek-dosya (single-file) paketler UPX ile bozulabilir.' 'Warning' }
+            if (-not $upx) { Write-Log 'UPX not found; compression skipped.' 'Warning' }
+            elseif ($SingleFile) { Write-Log 'UPX skipped: single-file packages may become corrupted with UPX.' 'Warning' }
             else {
                 $exeToCompress = Join-Path $distDir ($baseName + '.exe')
-                Write-Log "UPX (deneysel) uygulanıyor: $exeToCompress"
+                Write-Log "Applying UPX compression: $exeToCompress"
                 $r = Invoke-NativeLines $upx.Source @('--best', '--lzma', $exeToCompress)
                 foreach ($l in $r.Lines) { Write-Log $l 'Debug' }
-                if ($r.Code -ne 0) { Write-Log "UPX başarısız (çıkış kodu $($r.Code)); çıktıyı kontrol edin." 'Warning' }
-                else { Write-Log 'UPX sıkıştırması tamamlandı.' }
+                if ($r.Code -ne 0) { Write-Log "UPX failed (exit code $($r.Code)); check output." 'Warning' }
+                else { Write-Log 'UPX compression completed.' }
             }
         }
     }
@@ -421,9 +419,9 @@ try {
         # ------------------------------------------------ Windows PowerShell 5.1 backend
         $csc = @("$env:windir\Microsoft.NET\Framework64\v4.0.30319\csc.exe", "$env:windir\Microsoft.NET\Framework\v4.0.30319\csc.exe") |
                Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-        if (-not $csc) { Stop-Build 'PWX3101' '.NET Framework csc.exe bulunamadı.' }
+        if (-not $csc) { Stop-Build 'PWX3101' '.NET Framework csc.exe not found.' }
         $stubSrc = Join-Path $script:Root 'src\PwX.BuildHost.PS51\Stub.cs'
-        if (-not (Test-Path -LiteralPath $stubSrc)) { Stop-Build 'PWX3102' "Stub kaynağı bulunamadı: $stubSrc" }
+        if (-not (Test-Path -LiteralPath $stubSrc)) { Stop-Build 'PWX3102' "Stub source not found: $stubSrc" }
 
         Copy-Item -LiteralPath $stubSrc -Destination (Join-Path $workDir 'Stub.cs')
         $asmInfo = @"
@@ -451,27 +449,27 @@ using System.Reflection;
         $rsp.Add('Stub.cs'); $rsp.Add('AssemblyInfo.cs')
         [IO.File]::WriteAllText((Join-Path $workDir 'build.rsp'), ($rsp -join "`r`n"), $script:Utf8Bom)
 
-        Write-Log 'csc.exe çalışıyor...'
+        Write-Log 'csc.exe compiling...'
         $code = Invoke-Native $csc @('@build.rsp') $workDir
-        if ($code -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $workDir 'out.exe'))) { Stop-Build 'PWX3103' "csc derlemesi başarısız (çıkış kodu $code). Ayrıntı: $LogPath" }
+        if ($code -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $workDir 'out.exe'))) { Stop-Build 'PWX3103' "csc compilation failed (exit code $code). Details: $LogPath" }
         Copy-Item -LiteralPath (Join-Path $workDir 'out.exe') -Destination $Output -Force
         if ($Config) { New-AppConfig "$Output.config" }
     }
 
-    # 8) çıktıyı doğrula
-    if (-not (Test-Path -LiteralPath $finalExe)) { Stop-Build 'PWX4001' 'Çıktı dosyası oluşmadı.' }
+    # 8) Verify executable output
+    if (-not (Test-Path -LiteralPath $finalExe)) { Stop-Build 'PWX4001' 'Output executable was not created.' }
     $fi = Get-Item -LiteralPath $finalExe
     $mz = [IO.File]::ReadAllBytes($finalExe)[0..1]
-    if ($fi.Length -le 0 -or $mz[0] -ne 0x4D -or $mz[1] -ne 0x5A) { Stop-Build 'PWX4002' 'Çıktı geçerli bir Windows yürütülebilir dosyası değil.' }
+    if ($fi.Length -le 0 -or $mz[0] -ne 0x4D -or $mz[1] -ne 0x5A) { Stop-Build 'PWX4002' 'Output is not a valid Windows executable.' }
 
     $result.Success = $true
     $result.OutputPath = $finalExe
     $result.OutputSize = $fi.Length
-    Write-Log ('BAŞARILI: {0} ({1:N1} MB)' -f $finalExe, ($fi.Length / 1MB))
+    Write-Log ('SUCCESS: {0} ({1:N1} MB)' -f $finalExe, ($fi.Length / 1MB))
 }
 catch {
-    if ($_.Exception.Message -ne 'PWX_BUILD_FAILED') { Add-Diag 'Error' 'PWX9000' ("Beklenmeyen hata: " + $_.Exception.Message) }
-    Write-Log 'DERLEME BAŞARISIZ.' 'Error'
+    if ($_.Exception.Message -ne 'PWX_BUILD_FAILED') { Add-Diag 'Error' 'PWX9000' ("Unexpected error: " + $_.Exception.Message) }
+    Write-Log 'BUILD FAILED.' 'Error'
 }
 finally {
     if ($script:EnvSaved) {
@@ -479,11 +477,11 @@ finally {
         $env:VSLANG = $script:EnvSaved.VSLANG
     }
     if ($workDir -and (Test-Path -LiteralPath $workDir) -and -not $KeepTemp) {
-        try { Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction Stop } catch { Write-Log "Geçici klasör silinemedi: $workDir" 'Warning' }
+        try { Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction Stop } catch { Write-Log "Could not remove temp folder: $workDir" 'Warning' }
     }
     $sw.Stop()
     $result.Duration = $sw.Elapsed
-    Write-Log ('Süre: {0:N1} sn | Günlük: {1}' -f $sw.Elapsed.TotalSeconds, $LogPath)
+    Write-Log ('Duration: {0:N1} s | Log: {1}' -f $sw.Elapsed.TotalSeconds, $LogPath)
 }
 
 [pscustomobject]$result
