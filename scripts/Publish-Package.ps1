@@ -103,6 +103,17 @@ function Write-Err {
     Write-Color "[HATA] $Text" Red
 }
 
+function Read-ApiKey {
+    param([string]$PromptText)
+    Write-Host "$PromptText" -ForegroundColor Yellow
+    # Windows PowerShell 5.1 & PowerShell 7+ tam uyumlu güvenli girdi
+    $secure = Read-Host -Prompt "Key" -AsSecureString
+    if ($secure -and $secure.Length -gt 0) {
+        return (New-Object System.Net.NetworkCredential("", $secure)).Password
+    }
+    return ""
+}
+
 # ------------------------------------------------------------- Başlık Banner
 Write-Color "================================================================" Cyan
 Write-Color "      PwX Package & Release Automation (NuGet + PSGallery)      " Cyan
@@ -165,7 +176,7 @@ if ($needNuGet) {
             $NuGetApiKey = $env:NUGET_API_KEY
             Write-Success "NuGet API Key ortam değişkeninden (\$env:NUGET_API_KEY) alındı."
         } elseif (-not $DryRun) {
-            $inputKey = Read-Host -Prompt "NuGet.org API Anahtarını girin (Atlamak için Boş Bırakın)" -MaskInput
+            $inputKey = Read-ApiKey "NuGet.org API Anahtarını girin (Atlamak için Boş Bırakıp Enter'a basın)"
             if ([string]::IsNullOrWhiteSpace($inputKey)) {
                 Write-Warn "NuGet API Key girilmedi. NuGet yayını atlanacak."
             } else {
@@ -186,7 +197,7 @@ if ($needPSGallery) {
             $PSGalleryApiKey = $env:PSGALLERY_API_KEY
             Write-Success "PSGallery API Key ortam değişkeninden (\$env:PSGALLERY_API_KEY) alındı."
         } elseif (-not $DryRun) {
-            $inputKey = Read-Host -Prompt "PowerShell Gallery API Anahtarını girin (Atlamak için Boş Bırakın)" -MaskInput
+            $inputKey = Read-ApiKey "PowerShell Gallery API Anahtarını girin (Atlamak için Boş Bırakıp Enter'a basın)"
             if ([string]::IsNullOrWhiteSpace($inputKey)) {
                 Write-Warn "PSGallery API Key girilmedi. PSGallery yayını atlanacak."
             } else {
