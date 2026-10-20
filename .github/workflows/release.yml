@@ -38,19 +38,23 @@ jobs:
 
       - name: Authenticate with NuGet (Trusted Publishing / OIDC)
         if: env.NUGET_API_KEY == ''
+        id: login
         uses: NuGet/login@v1
+        with:
+          user: 'mtahiryilmazz'
 
       - name: Publish to NuGet.org
         shell: pwsh
         run: |
+          $apiKey = if ($env:NUGET_API_KEY) { $env:NUGET_API_KEY } else { '${{ steps.login.outputs.NUGET_API_KEY }}' }
           $packages = Get-ChildItem -Path ./artifacts -Filter *.nupkg
           if (-not $packages) {
             throw "No .nupkg packages found in ./artifacts!"
           }
           foreach ($pkg in $packages) {
             Write-Host "Publishing $($pkg.FullName)..."
-            if ($env:NUGET_API_KEY) {
-              dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY --skip-duplicate
+            if ($apiKey) {
+              dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --api-key $apiKey --skip-duplicate
             } else {
               dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --skip-duplicate
             }
