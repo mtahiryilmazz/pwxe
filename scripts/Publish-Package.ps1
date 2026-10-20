@@ -51,6 +51,11 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+# .NET CLI ve PowerShellGet ciktilarinin Ingilizce olmasini zorunlu kil
+# (Turkce Windows'ta dotnet pack ciktisi 'Cannot index into a null array' hatasina yol acar)
+$env:DOTNET_CLI_UI_LANGUAGE = 'en-US'
+$env:VSLANG = '1033'
+
 # Windows PowerShell 5.1 yerlesik SSL/TLS hatasi vermesin diye sistemde PowerShell 7 (pwsh) varsa otomatik devret
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
@@ -320,7 +325,7 @@ if ($needPSGallery) {
                 $inv = [System.Globalization.CultureInfo]::InvariantCulture
                 [System.Threading.Thread]::CurrentThread.CurrentCulture = $inv
                 [System.Threading.Thread]::CurrentThread.CurrentUICulture = $inv
-                $env:DOTNET_CLI_UI_LANGUAGE = 'en'
+                $env:DOTNET_CLI_UI_LANGUAGE = 'en-US'
                 $env:VSLANG = '1033'
 
                 Write-Host "Modul staging dizini hazirlaniyor: $stageDir..."
@@ -331,6 +336,8 @@ if ($needPSGallery) {
                 Copy-Item (Join-Path $RepoRoot 'LICENSE') -Destination $stageDir -ErrorAction SilentlyContinue
                 if (Test-Path (Join-Path $RepoRoot 'scripts')) {
                     Copy-Item (Join-Path $RepoRoot 'scripts') -Destination $stageDir -Recurse
+                    # Yayin betigini son kullanici modul paketine dahil etme (NU5110/NU5111 uyarilarini onler)
+                    Remove-Item (Join-Path $stageDir 'scripts\Publish-Package.ps1') -Force -ErrorAction SilentlyContinue
                 }
                 if (Test-Path (Join-Path $RepoRoot 'src')) {
                     Copy-Item (Join-Path $RepoRoot 'src') -Destination $stageDir -Recurse
