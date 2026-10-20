@@ -268,8 +268,10 @@ if ($needPSGallery) {
             $psGalleryStatus = "DryRun (Basarili)"
         } else {
             # Repo kok dizini cok sayida build/test artiklari icerdiginden,
-            # Publish-Module'un 'Cannot index into a null array' hatasini onlemek icin temiz staging dizini olustur
-            $stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "pwxe_stage_$([System.Guid]::NewGuid().ToString('N').Substring(0,8))"
+            # Publish-Module'un 'Cannot index into a null array' hatasini onlemek icin temiz staging dizini olustur.
+            # NOT: PowerShell, klasor adinin modul adiyla ('pwxe') ayni olmasini zorunlu kilar.
+            $stageParent = Join-Path ([System.IO.Path]::GetTempPath()) "pwxe_stage_$([System.Guid]::NewGuid().ToString('N').Substring(0,8))"
+            $stageDir = Join-Path $stageParent 'pwxe'
             try {
                 Write-Host "Modul staging dizini hazirlaniyor: $stageDir..."
                 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
@@ -284,7 +286,7 @@ if ($needPSGallery) {
                     Copy-Item (Join-Path $RepoRoot 'src') -Destination $stageDir -Recurse
                 }
 
-                Write-Host "PSGallery'ye yukleniyor..."
+                Write-Host "PSGallery'ye yukleniyor ($stageDir)..."
                 Publish-Module -Path $stageDir -NuGetApiKey $PSGalleryApiKey -Verbose -ErrorAction Stop
                 Write-Success "PowerShell Gallery'ye basariyla yayinlandi!"
                 $psGalleryStatus = "Basarili"
@@ -313,7 +315,7 @@ if ($needPSGallery) {
                 }
             }
             finally {
-                Remove-Item -Path $stageDir -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -Path $stageParent -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
     }
