@@ -34,7 +34,24 @@ jobs:
           New-Item -ItemType Directory -Path ./artifacts -Force | Out-Null
           nuget pack pwxe.nuspec -OutputDirectory ./artifacts
 
-      - name: Publish to NuGet.org (Trusted Publishing / OIDC)
+      - name: Authenticate with NuGet (Trusted Publishing / OIDC)
+        if: "${{ secrets.NUGET_API_KEY == '' }}"
+        uses: NuGet/login@v1
+
+      - name: Publish to NuGet.org
         shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+          $packages = Get-ChildItem -Path ./artifacts -Filter *.nupkg
+          if (-not $packages) {
+            throw "No .nupkg packages found in ./artifacts!"
+          }
+          foreach ($pkg in $packages) {
+            Write-Host "Publishing $($pkg.FullName)..."
+            if ($env:NUGET_API_KEY) {
+              dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY --skip-duplicate
+            } else {
+              dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --skip-duplicate
+            }
+          }
