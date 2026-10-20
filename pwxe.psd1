@@ -95,7 +95,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'PowerShell', 'EXE', 'Build', 'Compile', 'PS2EXE', 'WinForms', 'Packaging', 
+        Tags = 'PowerShell', 'EXE', 'Build', 'Compile', 'WinForms', 'Packaging', 
                'CLI', 'dotnet'
 
         # A URL to the license for this module.

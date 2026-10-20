@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  PwX Build Engine - PS2EXE'den bağımsız .ps1 -> .exe dönüştürücü (komut satırı).
+  PwX Build Engine - Bağımsız .ps1 -> .exe dönüştürücü (komut satırı).
 .DESCRIPTION
   Kaynak betiği DERLEME SIRASINDA ÇALIŞTIRMADAN; yalnızca sözdizimini ayrıştırır.
   PS7   : src\PwX.BuildHost.PS7 (PowerShell SDK host) -> dotnet publish
