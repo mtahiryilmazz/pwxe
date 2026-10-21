@@ -15,9 +15,11 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 | Milestone | Status | Key Focus | Target Release |
 | :--- | :--- | :--- | :--- |
 | **v1.0.x** | ✅ Completed | Dual-Engine Core, Exit Code Fidelity, PS7 Module Sanitation | Q4 2026 |
+| **v1.6.4** | ✅ Completed | Security Hardening, Path Planting Protection, Dependency Updates | Q4 2026 |
 | **v1.1.0** | 🟡 In Progress | Security, Code Signing & UAC Manifest Controls | Q1 2027 |
 | **v1.2.0** | 📋 Planned | Third-Party Module Bundling & Size Optimization | Q2 2027 |
 | **v1.3.0** | 📋 Planned | Cross-Platform Runtimes (Linux/macOS) & Windows Services | Q3 2027 |
+| **v2.0.0** | 📋 Planned | .NET 10 LTS Migration (ahead of .NET 8 Nov 2026 EOL) | Q3 2026 / Q4 2026 |
 
 ---
 

@@ -26,13 +26,14 @@ param(
     [string]$Description,
     [string]$FileVersion = '1.0.0.0',
     [string]$ProductVersion,
-    [string]$PsSdkVersion = '7.4.6',   # Roadmap 4.4: pinned tested version
+    [string]$PsSdkVersion = '7.4.7',   # Roadmap 4.4: pinned tested version
     [string]$Framework = 'net8.0',     # PS SDK 7.4.x -> net8.0
     [string]$LogPath,
     [switch]$Force,
     [switch]$KeepTemp,
     [switch]$EnableTrim,
     [switch]$EnableUpx,
+    [switch]$TestHooks,
     [switch]$AutoInstallPrereqs,  # PS7: auto-install missing .NET SDK 8+ / repair NuGet source
     [bool]$Admin = $false,
     [bool]$Utf8 = $true,
@@ -165,15 +166,25 @@ function Install-DotnetSdk8 {
     else { Write-Log 'winget not found; using fallback method (dotnet-install.ps1).' 'Warning' }
     try {
         $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet'
-        $tmp = Join-Path ([IO.Path]::GetTempPath()) 'dotnet-install.ps1'
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ('dotnet-install-' + [guid]::NewGuid().ToString('N') + '.ps1')
         try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { Write-Log "Could not set TLS 1.2: $($_.Exception.Message)" 'Debug' }
         Write-Log "Installing .NET SDK 8 via official dotnet-install.ps1 to user directory: $dir"
         Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' -OutFile $tmp -UseBasicParsing
+        if (-not (Test-Path -LiteralPath $tmp) -or (Get-Item -LiteralPath $tmp).Length -lt 1000) {
+            throw "Downloaded dotnet-install.ps1 is empty or corrupted."
+        }
+        $sig = Get-AuthenticodeSignature -FilePath $tmp -ErrorAction SilentlyContinue
+        if ($sig -and $sig.Status -eq 'Valid' -and $sig.SignerCertificate.Subject -notmatch 'Microsoft') {
+            Write-Log "Untrusted signature on dotnet-install.ps1: $($sig.SignerCertificate.Subject)" 'Warning'
+        }
         $psExe = (Get-Command powershell.exe -ErrorAction Stop).Source
         $r = Invoke-NativeLines $psExe @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmp, '-Channel', '8.0', '-InstallDir', $dir)
         foreach ($l in $r.Lines) { Write-Log $l 'Debug' }
     }
     catch { Write-Log "Fallback installation failed: $($_.Exception.Message)" 'Warning' }
+    finally {
+        if ($tmp -and (Test-Path -LiteralPath $tmp)) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+    }
     return (Get-DotnetSdkInfo)
 }
 function Get-NuGetSources {
@@ -220,9 +231,26 @@ $result = [ordered]@{ Success = $false; OutputPath = $null; Target = $Target; Du
 $script:SrcPath = $Source
 
 try {
-    # Logging setup
-    if (-not $LogPath) { $LogPath = Join-Path $script:Root ('artifacts\logs\build-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date)) }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
+    # Logging setup: use repo artifacts/logs in development, or %LOCALAPPDATA%/pwxe/logs in installed environments
+    if (-not $LogPath) {
+        $devGit = Join-Path $script:Root '.git'
+        if (Test-Path -LiteralPath $devGit) {
+            $LogPath = Join-Path $script:Root ('artifacts\logs\build-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date))
+        } else {
+            $baseLogDir = if ($env:LOCALAPPDATA) {
+                Join-Path $env:LOCALAPPDATA 'pwxe\logs'
+            } else {
+                Join-Path ([System.IO.Path]::GetTempPath()) 'pwxe\logs'
+            }
+            $LogPath = Join-Path $baseLogDir ('build-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date))
+        }
+    }
+    try {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) | Out-Null
+    } catch {
+        $LogPath = Join-Path ([System.IO.Path]::GetTempPath()) ('pwxe-build-{0:yyyyMMdd-HHmmss}.log' -f (Get-Date))
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $LogPath) -ErrorAction SilentlyContinue | Out-Null
+    }
     $script:LogFile = $LogPath
     $result.LogPath = $LogPath
     Write-Log "PwX Build Engine starting. Target=$Target Mode=$Mode Runtime=$RuntimeMode"
@@ -344,6 +372,7 @@ try {
         if ($CompanyName) { $lines.Add('<Company>' + (ConvertTo-XmlText $CompanyName) + '</Company>') }
         if ($Description) { $lines.Add('<Description>' + (ConvertTo-XmlText $Description) + '</Description>') }
         if ($manifest) { $lines.Add('<PwxManifest>' + (ConvertTo-XmlText $manifest) + '</PwxManifest>') }
+        if ($TestHooks) { $lines.Add('<PwxTestHooks>true</PwxTestHooks>') }
         $lines.Add('<AssemblyVersion>' + $FileVersion + '</AssemblyVersion>')
         $lines.Add('<FileVersion>' + $FileVersion + '</FileVersion>')
         $lines.Add('<InformationalVersion>' + (ConvertTo-XmlText $ProductVersion) + '</InformationalVersion>')

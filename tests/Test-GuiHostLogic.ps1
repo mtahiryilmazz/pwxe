@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS  PS7 GUI host mantığı birim testi (Windows gerektirmez; PowerShell 7 yeterli).
 .DESCRIPTION
   src\PwX.BuildHost.PS7\Program.cs (PWX_GUI tanımıyla) ve ScriptArguments.cs dosyalarını Add-Type ile
@@ -17,7 +17,7 @@ try {
     if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
         $prog = ($prog -split "`r?`n" | Where-Object { $_ -notmatch 'iss\.ExecutionPolicy|rs\.ApartmentState' }) -join "`n"
     }
-    Set-Content -LiteralPath (Join-Path $tmp 'Program.cs') -Value ("#define PWX_GUI`n" + $prog) -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $tmp 'Program.cs') -Value ("#define PWX_GUI`n#define PWX_TESTHOOKS`n" + $prog) -Encoding UTF8
     Copy-Item -LiteralPath (Join-Path $hostSrc 'ScriptArguments.cs') -Destination $tmp
     Add-Type -Path (Join-Path $tmp 'Program.cs'), (Join-Path $tmp 'ScriptArguments.cs') -ErrorAction Stop
 

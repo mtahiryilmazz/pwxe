@@ -28,6 +28,21 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Run verification tests before publish
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Module.ps1
+
+      - name: Validate Release Tag Matches Manifest Version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tagVer = '${{ github.ref_name }}' -replace '^v', ''
+          $manifestVer = (Test-ModuleManifest -Path ./pwxe.psd1).Version.ToString()
+          if ($tagVer -ne $manifestVer) {
+            throw "Git tag version ($tagVer) does not match pwxe.psd1 manifest version ($manifestVer)!"
+          }
+          Write-Host "Tag version ($tagVer) matches module manifest version."
+
       - name: Setup NuGet CLI
         uses: nuget/setup-nuget@v2
 
@@ -46,8 +61,10 @@ jobs:
 
       - name: Publish to NuGet.org
         shell: pwsh
+        env:
+          LOGIN_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: |
-          $apiKey = if ($env:NUGET_API_KEY) { $env:NUGET_API_KEY } else { '${{ steps.login.outputs.NUGET_API_KEY }}' }
+          $apiKey = if ($env:NUGET_API_KEY) { $env:NUGET_API_KEY } elseif ($env:LOGIN_API_KEY) { $env:LOGIN_API_KEY } else { $null }
           $packages = Get-ChildItem -Path ./artifacts -Filter *.nupkg
           if (-not $packages) {
             throw "No .nupkg packages found in ./artifacts!"
@@ -55,6 +72,7 @@ jobs:
           foreach ($pkg in $packages) {
             Write-Host "Publishing $($pkg.FullName)..."
             if ($apiKey) {
+              $env:DOTNET_NUGET_API_KEY = $apiKey
               dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --api-key $apiKey --skip-duplicate
             } else {
               dotnet nuget push $pkg.FullName --source https://api.nuget.org/v3/index.json --skip-duplicate

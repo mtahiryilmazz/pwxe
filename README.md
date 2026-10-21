@@ -6,12 +6,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.3-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.4-blue.svg?style=flat-square" alt="Latest Release"></a>
   <a href="https://www.powershellgallery.com/packages/pwxe"><img src="https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery" alt="PowerShell Gallery: pwxe"></a>
   <a href="https://www.nuget.org/packages/pwxe"><img src="https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet" alt="NuGet: pwxe"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=flat-square" alt="Platform: Windows">
   <img src="https://img.shields.io/badge/PowerShell-5.1%20%7C%207.4%2B-5391FE.svg?style=flat-square" alt="PowerShell 5.1 & 7.4+">
+  <img src="https://img.shields.io/badge/security-audited-success.svg?style=flat-square" alt="Security Audited">
 </p>
 
 ---
@@ -43,6 +44,16 @@ SelfContained remains the default. Use RuntimeMode FrameworkDependent when a sma
 The engine supports x86/x64, administrator execution, DPI awareness, Windows compatibility, long paths, EXE.config generation, UTF-8/Unicode output and output suppression.
 
 The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target machine only needs the runtime listed above.
+
+> [!NOTE]
+> **.NET 8 LTS Lifecycle & Transition:**
+> .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.6.4 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
+
+### 🛡️ Security Hardening in v1.6.4
+- **Host Error Log Isolation:** Production EXEs do not accept arbitrary error log file redirection via `PWX_ERROR_LOG`.
+- **Search Path Protection:** Engine script resolution rejects untrusted paths (CWD, Downloads, Desktop) to prevent planting attacks.
+- **Archive Hygiene & Zip Slip:** Clean `.nupkg` packaging excluding `bin/` and `obj/` intermediate artifacts; path-traversal prevention during zip extraction.
+- **Safe Machine-Wide Installation:** Default logging points to `%LOCALAPPDATA%\pwxe\logs` preventing access denied errors in AllUsers installs.
 
 ## 📥 Installation & Usage
  

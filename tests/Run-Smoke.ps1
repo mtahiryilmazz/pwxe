@@ -6,6 +6,7 @@ param([ValidateSet('PS51', 'PS7', 'All')][string]$Target = 'All', [switch]$Singl
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
 $root   = Split-Path -Parent $PSScriptRoot
 $build  = Join-Path $root 'scripts\PwX-Build.ps1'
 $sample = Join-Path $PSScriptRoot 'samples\hello.ps1'
@@ -50,7 +51,7 @@ foreach ($t in $targets) {
 if ($targets -contains 'PS7') {
     $guiSample = Join-Path $PSScriptRoot 'samples\gui-edge.ps1'
     $guiOut = Join-Path $root 'artifacts\test-results\PS7-GUI\gui-edge.exe'
-    $guiRes = & $build -Source $guiSample -Output $guiOut -Target PS7 -Mode Gui -Force
+    $guiRes = & $build -Source $guiSample -Output $guiOut -Target PS7 -Mode Gui -TestHooks -Force
     if ($guiRes.Success -and (Test-Path -LiteralPath $guiRes.OutputPath)) {
         $guiExe     = $guiRes.OutputPath
         $guiDir     = Split-Path -Parent $guiExe

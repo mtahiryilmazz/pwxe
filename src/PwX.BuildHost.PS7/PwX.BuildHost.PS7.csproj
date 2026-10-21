@@ -4,11 +4,12 @@
 
   <PropertyGroup>
     <PwxFramework Condition="'$(PwxFramework)'==''">net8.0</PwxFramework>
-    <PwxPsSdkVersion Condition="'$(PwxPsSdkVersion)'==''">7.4.6</PwxPsSdkVersion>
+    <PwxPsSdkVersion Condition="'$(PwxPsSdkVersion)'==''">7.4.7</PwxPsSdkVersion>
     <PwxSelfContained Condition="'$(PwxSelfContained)'==''">true</PwxSelfContained>
     <PwxGui Condition="'$(PwxGui)'==''">false</PwxGui>
     <PwxUtf8 Condition="'$(PwxUtf8)'==''">true</PwxUtf8>
     <PwxNoOutput Condition="'$(PwxNoOutput)'==''">false</PwxNoOutput>
+    <PwxTestHooks Condition="'$(PwxTestHooks)'==''">false</PwxTestHooks>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -24,6 +25,7 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DefineConstants Condition="'$(PwxUtf8)'=='true'">$(DefineConstants);PWX_UTF8_OUTPUT</DefineConstants>
     <DefineConstants Condition="'$(PwxNoOutput)'=='true'">$(DefineConstants);PWX_NO_OUTPUT</DefineConstants>
+    <DefineConstants Condition="'$(PwxTestHooks)'=='true'">$(DefineConstants);PWX_TESTHOOKS</DefineConstants>
     <!-- Ilk surumde trimming / AOT KULLANILMAZ (Roadmap Bolum 14) -->
     <PublishTrimmed>false</PublishTrimmed>
     <PublishAot>false</PublishAot>
@@ -48,6 +50,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="$(PwxPsSdkVersion)" />
+    <!-- Patched security dependencies for CVE-2024-38095 / GHSA-846f-f764-76mx and CVE-2024-43485 -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.2" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.5" />
     <EmbeddedResource Include="$(PwxPayload)" LogicalName="PwX.payload.ps1" Condition="'$(PwxPayload)'!=''" />
   </ItemGroup>
 </Project>

@@ -16,3 +16,17 @@ Desktop.ini
 nuget.exe
 *.nupkg
 *.snupkg
+# --- Secrets & Sensitive Data ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.p12
+*.snk
+*.keystore
+*.token
+*.cer
+*secret*
+*credentials*

@@ -10,6 +10,20 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ## [Unreleased]
 
+## [1.6.4] — 2026-10-21
+
+### Security & Hardening
+- **Host Error Handling Isolation:** Wrapped `PWX_ERROR_LOG` fatal error interception in `#if DEBUG || PWX_TESTHOOKS` preprocessor conditions to prevent arbitrary file append vulnerabilities in elevated release EXEs.
+- **Safe Log Directory:** Changed default engine log directory to `%LOCALAPPDATA%\pwxe\logs` (with `%TEMP%` fallback) to prevent permission failures in machine-wide (`-Scope AllUsers`) module installations.
+- **SDK & Dependency Updates:** Bumped `Microsoft.PowerShell.SDK` to `7.4.7`. Verified package vulnerability status.
+- **Download Integrity Verification:** Added Authenticode digital signature and file size validation to `dotnet-install.ps1` in `Install-DotnetSdk8`.
+- **Package Hygiene:** Added explicit exclude filters in `pwxe.nuspec` for `bin/`, `obj/`, and temporary files to prevent packaging intermediate build artifacts.
+- **Publishing Key Protection:** Secured `Publish-Package.ps1` and CI workflows against leaking NuGet/PSGallery API keys in process lists or inline script strings.
+
+### Fixed
+- **Architecture Validation:** Added `win-x86` to `Invoke-Pwxe`'s `-Architecture` parameter validation set.
+- **English Standardization:** Normalized all CLI diagnostic and error messages across module and publishing scripts to English.
+
 ## [1.6.3] — 2026-10-20
 
 ### Changed

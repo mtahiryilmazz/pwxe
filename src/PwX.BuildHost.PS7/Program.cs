@@ -246,17 +246,18 @@ namespace PwX.BuildHost
         }
 #endif
 
-        // PWX_ERROR_LOG ortam degiskeni doluysa hata iletisi iletisim kutusu yerine bu dosyaya eklenir.
-        // CI/otomasyonda GUI hostun MessageBox ile takili kalmasini onler ve testlerin hata metnini
-        // dogrulamasini saglar.
+        // PWX_ERROR_LOG yalnizca test/otomasyon ortaminda (PWX_TESTHOOKS veya DEBUG acikken) etkindir.
+        // Uretim derlemelerinde keyfi dosya ekleme (arbitrary file append) riskini onlemek icin derleme disi birakilir.
         private static void ReportFatal(string message)
         {
+#if DEBUG || PWX_TESTHOOKS
             string log = Environment.GetEnvironmentVariable("PWX_ERROR_LOG");
             if (!string.IsNullOrEmpty(log))
             {
                 try { File.AppendAllText(log, message + Environment.NewLine, new UTF8Encoding(false)); } catch { }
                 return;
             }
+#endif
 #if PWX_GUI
             try { MessageBoxW(IntPtr.Zero, message, "PwX", 0x10); } catch { }
 #else

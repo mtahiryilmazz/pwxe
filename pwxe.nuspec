@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>pwxe</id>
-    <version>1.6.3</version>
+    <version>1.6.4</version>
     <authors>Tahir Yilmaz</authors>
     <owners>Tahir Yilmaz</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -22,7 +22,7 @@
     <file src="pwxe.psm1" target="pwxe.psm1" />
     <file src="README.md" target="README.md" />
     <file src="LICENSE" target="LICENSE" />
-    <file src="scripts\**" target="scripts" />
-    <file src="src\**" target="src" />
+    <file src="scripts\**" target="scripts" exclude="scripts\Publish-Package.ps1;scripts\**\*.tmp" />
+    <file src="src\**" target="src" exclude="src\**\bin\**;src\**\obj\**" />
   </files>
 </package>

@@ -34,7 +34,7 @@ function Invoke-Pwxe {
         [string]$Runtime = 'SelfContained',
 
         [Parameter()]
-        [ValidateSet('win-x64', 'win-arm64')]
+        [ValidateSet('win-x64', 'win-x86', 'win-arm64')]
         [string]$Architecture = 'win-x64',
 
         [Parameter()]
@@ -82,7 +82,7 @@ function Invoke-Pwxe {
 
     process {
         if (-not (Test-Path -LiteralPath $script:EngineBuildScript)) {
-            throw "pwxe derleme betigi bulunamadi: $script:EngineBuildScript"
+            throw "pwxe build script not found: $script:EngineBuildScript"
         }
 
         $resolvedSource = (Resolve-Path -LiteralPath $Source).Path
