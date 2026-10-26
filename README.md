@@ -164,7 +164,7 @@ All suites run on every push via GitHub Actions as separate checks.
 
 ## 🗺️ Roadmap
 
-See our planned milestones, security signing, and cross-platform goals in [ROADMAP.md](ROADMAP.md).
+See our planned milestones, security signing, and cross-platform goals in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 

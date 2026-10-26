@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 15
     env:
       NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
 
     steps:
       - name: Checkout repository
@@ -87,4 +88,13 @@ jobs:
             Write-Host "Publishing $($pkg.FullName) to GitHub Packages..."
             dotnet nuget push $pkg.FullName --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate
           }
+
+      - name: Publish to PowerShell Gallery
+        if: env.PSGALLERY_API_KEY != ''
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Write-Host "Publishing pwxe to PowerShell Gallery..."
+          ./scripts/Publish-Package.ps1 -Target PSGallery -PSGalleryApiKey $env:PSGALLERY_API_KEY -SkipValidation -SkipPack
 
