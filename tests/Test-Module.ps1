@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS  pwxe PowerShell modülü testleri (manifest, dışa aktarımlar, Invoke-Pwxe uçtan uca).
 .DESCRIPTION
   M-001..M-004 : manifest geçerliliği, sürüm uyumu, dışa aktarılan komut/alias'lar
