@@ -8,6 +8,12 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ---
 
+## [1.7.1] — 2026-10-26
+
+### Fixed
+- **Engine Reliability & Deployment Sync:** Updated core packaging with clean standalone module layout, refreshed dependencies, and full PwX Studio GUI engine synchronization.
+- **Documentation & Research:** Integrated v1.8.0 Payload Protection specification and in-process hybrid research into `docs/`.
+
 ## [1.7.0] — 2026-10-26
 
 ### Added
