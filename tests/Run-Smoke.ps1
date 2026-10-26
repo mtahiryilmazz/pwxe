@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS  PwX Build Engine duman testleri (T-001..T-006, T-GUI-001..009, T-009).
 #>
 [CmdletBinding()]
