@@ -1,19 +1,15 @@
 # pwxe — PwX Build Engine & CLI
 
-<p align="center">
-  <strong>Modern, ultra-fast and standalone PowerShell script to EXE build engine.</strong><br>
-  <em>Convert PowerShell scripts into native Windows executables with zero external dependencies.</em>
-</p>
+**Modern, ultra-fast and standalone PowerShell script to EXE build engine.**  
+*Convert PowerShell scripts into native Windows executables with zero external dependencies.*
 
-<p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.7.0-blue.svg?style=flat-square" alt="Latest Release"></a>
-  <a href="https://www.powershellgallery.com/packages/pwxe"><img src="https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery" alt="PowerShell Gallery: pwxe"></a>
-  <a href="https://www.nuget.org/packages/pwxe"><img src="https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet" alt="NuGet: pwxe"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=flat-square" alt="Platform: Windows">
-  <img src="https://img.shields.io/badge/PowerShell-5.1%20%7C%207.4%2B-5391FE.svg?style=flat-square" alt="PowerShell 5.1 & 7.4+">
-  <img src="https://img.shields.io/badge/security-audited-success.svg?style=flat-square" alt="Security Audited">
-</p>
+[![Latest Release](https://img.shields.io/badge/release-v1.7.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
+[![PowerShell Gallery: pwxe](https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery)](https://www.powershellgallery.com/packages/pwxe)
+[![NuGet: pwxe](https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/pwxe)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/blob/main/LICENSE)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=flat-square)
+![PowerShell 5.1 & 7.4+](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.4%2B-5391FE.svg?style=flat-square)
+![Security Audited](https://img.shields.io/badge/security-audited-success.svg?style=flat-square)
 
 ---
 
@@ -46,8 +42,7 @@ The engine supports x86/x64, administrator execution, DPI awareness, Windows com
 
 The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target machine only needs the runtime listed above.
 
-> [!NOTE]
-> **.NET 8 LTS Lifecycle & Transition:**
+> **.NET 8 LTS Lifecycle & Transition:**  
 > .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.7.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
 
 ### 🛡️ Security & Signing in v1.7.0
@@ -130,7 +125,8 @@ Invoke-Pwxe -Source .\modern.ps1 `
 | `-EnableUpx` | Switch | `False` | **Experimental.** UPX-compress the output if `upx` is on PATH (skipped for single-file; may trigger AV false positives) |
 | `-AutoInstallPrereqs` | Switch | `False` | PS7: install a missing .NET SDK 8 (winget, or the official `dotnet-install.ps1`) and enable `nuget.org` if no NuGet source is enabled |
 
-> **PS7 output modes:** `SelfContained` (default) runs on any Windows machine without extra installs. `FrameworkDependent` is much smaller but needs the **.NET 8 Runtime** (GUI apps: **Windows Desktop Runtime 8**) on the target machine - `pwsh` is *not* required, the PowerShell engine ships inside the output. See [docs/PS7-build-modes.md](docs/PS7-build-modes.md).
+> **PS7 output modes:** `SelfContained` (default) runs on any Windows machine without extra installs. `FrameworkDependent` is much smaller but needs the **.NET 8 Runtime** (GUI apps: **Windows Desktop Runtime 8**) on the target machine - `pwsh` is *not* required, the PowerShell engine ships inside the output. See [PS7-build-modes.md](https://github.com/mtahiryilmazz/pwxe/blob/main/docs/PS7-build-modes.md).
+
 | `-Icon` | String | `$null` | Application `.ico` file path |
 | `-Title` | String | File name | Product name and description |
 | `-CompanyName` | String | `$null` | Company/Publisher name |
@@ -164,10 +160,10 @@ All suites run on every push via GitHub Actions as separate checks.
 
 ## 🗺️ Roadmap
 
-See our planned milestones, security signing, and cross-platform goals in [docs/ROADMAP.md](docs/ROADMAP.md).
+See our planned milestones, security signing, and cross-platform goals in [ROADMAP.md](https://github.com/mtahiryilmazz/pwxe/blob/main/docs/ROADMAP.md).
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](https://github.com/mtahiryilmazz/pwxe/blob/main/LICENSE).
