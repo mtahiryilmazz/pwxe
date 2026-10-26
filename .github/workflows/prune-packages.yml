@@ -29,7 +29,7 @@ jobs:
             $versions = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
             Write-Host "Found $($versions.Count) versions."
 
-            $keepVersions = @('1.7.0', '1.6.4')
+            $keepVersions = @('1.7.1', '1.7.0')
             foreach ($v in $versions) {
               $vName = $v.name
               $vId = $v.id

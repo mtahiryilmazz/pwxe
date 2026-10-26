@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Unlist older pwxe versions on NuGet.org to retain only the latest 2 versions (1.7.0 & 1.6.4).
@@ -37,8 +37,8 @@ if (-not $NuGetApiKey) {
 # Turkce klavye 'i' harfini noktasiz i (U+0131) yaparsa duzelt
 $NuGetApiKey = $NuGetApiKey.Trim().Replace([char]0x0131, 'i').Replace([char]0x0130, 'I')
 
-$olderVersions = @('1.6.0', '1.6.1', '1.6.2', '1.6.3')
-$protectedVersions = @('1.6.4', '1.7.0')
+$olderVersions = @('1.6.0', '1.6.1', '1.6.2', '1.6.3', '1.6.4')
+$protectedVersions = @('1.7.0', '1.7.1')
 
 Write-Host "Korumaya alinan son 2 surum: $($protectedVersions -join ', ')" -ForegroundColor Green
 
