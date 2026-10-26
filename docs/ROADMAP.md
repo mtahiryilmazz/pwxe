@@ -14,9 +14,9 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 
 | Milestone | Status | Key Focus | Target Release |
 | :--- | :--- | :--- | :--- |
+| **v1.8.0** | ✅ Completed | Payload Encryption (AES-256), DPAPI Machine Binding & Test Suite | Q4 2026 |
 | **v1.7.0** | ✅ Completed | Authenticode Code Signing, UAC Elevation Manifest Controls | Q4 2026 |
 | **v1.6.4** | ✅ Completed | Security Hardening, Path Planting Protection, Dependency Updates | Q4 2026 |
-| **v1.8.0** | 🟡 In Progress | Payload Encryption (AES-256) & Antivirus Mitigation | Q1 2027 |
 | **v1.9.0** | 📋 Planned | Smart Stub, Custom Module Bundling & Size Optimization | Q2 2027 |
 | **v2.0.0** | 📋 Planned | Cross-Platform Runtimes & .NET 10 LTS Migration | Q3 2026 / Q4 2026 |
 
@@ -49,13 +49,13 @@ The current implementation now includes validated PS5.1 and PS7 Console/GUI buil
 - [x] **UAC Elevation Control:**
   - `-ExecutionLevel` parameter supporting `asInvoker` (default), `requireAdministrator`, and `highestAvailable`.
   - Embedded application manifest (`app.manifest`) generation without external tool dependencies.
-- [ ] **Payload Protection (v1.8.0):**
+- [x] **Payload Protection (v1.8.0):**
   - Optional AES-256 payload encryption (`-EncryptPayload`) with ephemeral in-memory decryption to protect proprietary logic in enterprise environments.
-  - Dual engine crypto design: AES-256-GCM + HKDF for PS7 (.NET 8) and AES-256-CBC + HMAC-SHA256 for PS5.1 (.NET Framework 4.8).
-  - Optional machine binding (`-BindToMachine`) using DPAPI and Machine GUID.
+  - Dual engine crypto design: AES-256-CBC + HMAC-SHA256 (`PWXENC01` envelope).
+  - Optional machine and user binding (`-BindToMachine`) using Windows DPAPI.
   - See detailed architecture: [v1.8.0 Design Document](design/v1.8.0-payload-protection.md).
   - Experimental in-process hybrid research: [In-Process Hybrid Research](research/in-process-hybrid.md).
-  - Antivirus false-positive mitigation guidelines and clean PE signature generation.
+  - Strict kill criteria and isolated branch: [Hybrid Kill Criteria](design/hybrid-kill-criteria.md).
 
 ---
 

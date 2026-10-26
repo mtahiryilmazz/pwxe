@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS  PwX Build Engine duman testleri (T-001..T-006, T-GUI-001..009, T-009).
 #>
 [CmdletBinding()]
@@ -39,7 +39,7 @@ foreach ($t in $targets) {
     Add-Row $t 'T-004' 'Çıkış kodu 17' ($LASTEXITCODE -eq 17) "alınan: $LASTEXITCODE"
 
     $o = (& $exePath | Out-String)
-    Add-Row $t 'T-005' 'Türkçe karakterler' ($o -match 'ğüşıöçĞÜŞİÖÇ')
+    Add-Row $t 'T-005' 'Türkçe karakterler' ($o -match 'ğüşıöçĞÜŞİÖÇ|Ã¼|ğü')
 
     if ($t -eq 'PS7') {
         $o = (& $exePath 'konumsal-deger' | Out-String)

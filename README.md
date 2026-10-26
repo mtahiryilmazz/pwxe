@@ -3,7 +3,7 @@
 **Modern, ultra-fast and standalone PowerShell script to EXE build engine.**  
 *Convert PowerShell scripts into native Windows executables with zero external dependencies.*
 
-[![Latest Release](https://img.shields.io/badge/release-v1.7.1-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
+[![Latest Release](https://img.shields.io/badge/release-v1.8.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
 [![PowerShell Gallery: pwxe](https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery)](https://www.powershellgallery.com/packages/pwxe)
 [![NuGet: pwxe](https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/pwxe)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/blob/main/LICENSE)
@@ -45,7 +45,9 @@ The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target
 > **.NET 8 LTS Lifecycle & Transition:**  
 > .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.7.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
 
-### 🛡️ Security & Signing in v1.7.0
+### 🛡️ Security & Signing in v1.8.0
+- **Payload Protection & Encryption:** AES-256-CBC payload encryption (`-EncryptPayload`) with HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope). Prevents plaintext script exposure in binary inspection.
+- **Machine & User Binding (DPAPI):** Optional machine binding (`-BindToMachine`) encrypts the AES key via Windows Data Protection API (DPAPI), ensuring the binary executes solely on the designated build machine and user context.
 - **Authenticode Digital Code Signing:** Sign output binaries automatically via `signtool.exe` (with RFC 3161 timestamps) or fallback `Set-AuthenticodeSignature`.
 - **UAC Elevation Control:** Custom manifest generation with `-ExecutionLevel asInvoker | requireAdministrator | highestAvailable`.
 - **Host Error Log Isolation:** Production EXEs do not accept arbitrary error log file redirection via `PWX_ERROR_LOG`.
@@ -132,6 +134,8 @@ Invoke-Pwxe -Source .\modern.ps1 `
 | `-CompanyName` | String | `$null` | Company/Publisher name |
 | `-FileVersion` | String | `1.0.0.0` | Assembly file version |
 | `-ExecutionLevel` | String | `asInvoker` | Manifest execution level (`asInvoker`, `requireAdministrator`, `highestAvailable`) |
+| `-EncryptPayload` | Switch | `False` | Encrypt embedded script using AES-256-CBC and HMAC-SHA256 (`PWXENC01`) to prevent plaintext extraction |
+| `-BindToMachine` | Switch | `False` | Lock decryption key to the current machine and user context via Windows DPAPI |
 | `-CertificateThumbprint` | String | `$null` | SHA1 certificate thumbprint from Windows Cert store for signing |
 | `-CertificateFile` | String | `$null` | Path to `.pfx` or certificate file for signing |
 | `-CertificatePassword` | String | `$null` | Password for `-CertificateFile` |

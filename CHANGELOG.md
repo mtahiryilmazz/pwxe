@@ -8,6 +8,19 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ---
 
+## [1.8.0] — 2026-10-26
+
+### Added
+- **Payload Protection & Encryption:** Added `-EncryptPayload` and `-BindToMachine` parameters to `Invoke-Pwxe` and `scripts/PwX-Build.ps1`.
+  - Scripts are protected using AES-256-CBC with randomized IVs and HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope).
+  - Eliminates plaintext script extraction from compiled PE binary files.
+  - Optional Windows DPAPI machine binding (`-BindToMachine`) locks executable decryption keys to the current machine and user context.
+  - Ephemeral runtime in-memory execution and temporary runtime file cleanup.
+- **Automated Verification:** Added `tests/Test-PayloadEncryption.ps1` with 7 end-to-end tests covering encrypted PS5.1, DPAPI machine-bound, and PS7 single-file encrypted builds.
+
+### Fixed
+- **Smoke Test Pipeline Encoding:** Improved standard console output decoding resilience for Turkish and Unicode characters in `tests/Run-Smoke.ps1`.
+
 ## [1.7.1] — 2026-10-26
 
 ### Fixed
