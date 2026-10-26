@@ -49,13 +49,19 @@ The current implementation now includes validated PS5.1 and PS7 Console/GUI buil
 - [x] **UAC Elevation Control:**
   - `-ExecutionLevel` parameter supporting `asInvoker` (default), `requireAdministrator`, and `highestAvailable`.
   - Embedded application manifest (`app.manifest`) generation without external tool dependencies.
-- [ ] **Payload Protection:**
-  - Optional AES-256 payload encryption with ephemeral in-memory decryption to protect proprietary logic in enterprise environments.
+- [ ] **Payload Protection (v1.8.0):**
+  - Optional AES-256 payload encryption (`-EncryptPayload`) with ephemeral in-memory decryption to protect proprietary logic in enterprise environments.
+  - Dual engine crypto design: AES-256-GCM + HKDF for PS7 (.NET 8) and AES-256-CBC + HMAC-SHA256 for PS5.1 (.NET Framework 4.8).
+  - Optional machine binding (`-BindToMachine`) using DPAPI and Machine GUID.
+  - See detailed architecture: [v1.8.0 Design Document](design/v1.8.0-payload-protection.md).
+  - Experimental in-process hybrid research: [In-Process Hybrid Research](research/in-process-hybrid.md).
   - Antivirus false-positive mitigation guidelines and clean PE signature generation.
 
 ---
 
-### Milestone 3: v1.2.0 — Custom Module Bundling & Performance
+### Milestone 3: v1.9.0 — Smart Stub, Custom Module Bundling & Performance
+- [ ] **Smart Stub Shared Runtime Extraction:**
+  - Authenticode-verified, SHA-256 integrity-checked shared PowerShell runtime cache in `%LOCALAPPDATA%\pwxe\runtime`.
 - [ ] **Custom Module Bundling (`-IncludeModules`):**
   - Package external PowerShell modules (e.g. `Import-Module Az.Accounts`, `Pester`, internal company modules) directly into the binary's embedded payload or output directory.
 - [ ] **Binary Size Reduction:**
