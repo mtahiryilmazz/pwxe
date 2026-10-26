@@ -26,6 +26,7 @@
     <DefineConstants Condition="'$(PwxUtf8)'=='true'">$(DefineConstants);PWX_UTF8_OUTPUT</DefineConstants>
     <DefineConstants Condition="'$(PwxNoOutput)'=='true'">$(DefineConstants);PWX_NO_OUTPUT</DefineConstants>
     <DefineConstants Condition="'$(PwxTestHooks)'=='true'">$(DefineConstants);PWX_TESTHOOKS</DefineConstants>
+    <DefineConstants Condition="'$(PwxEncrypted)'=='true'">$(DefineConstants);PWX_ENCRYPTED_PAYLOAD</DefineConstants>
     <!-- Ilk surumde trimming / AOT KULLANILMAZ (Roadmap Bolum 14) -->
     <PublishTrimmed>false</PublishTrimmed>
     <PublishAot>false</PublishAot>
@@ -53,6 +54,7 @@
     <!-- Patched security dependencies for CVE-2024-38095 / GHSA-846f-f764-76mx and CVE-2024-43485 -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.2" />
     <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.5" />
-    <EmbeddedResource Include="$(PwxPayload)" LogicalName="PwX.payload.ps1" Condition="'$(PwxPayload)'!=''" />
+    <EmbeddedResource Include="$(PwxPayload)" LogicalName="PwX.payload.enc" Condition="'$(PwxPayload)'!='' And '$(PwxEncrypted)'=='true'" />
+    <EmbeddedResource Include="$(PwxPayload)" LogicalName="PwX.payload.ps1" Condition="'$(PwxPayload)'!='' And '$(PwxEncrypted)'!='true'" />
   </ItemGroup>
 </Project>

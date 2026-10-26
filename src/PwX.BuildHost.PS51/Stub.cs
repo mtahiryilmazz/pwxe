@@ -1,18 +1,22 @@
-// PwX Build Engine - Windows PowerShell 5.1 launcher (C# 5 compatible; compiles with .NET Framework csc.exe)
-// Extracts embedded script to unique temp folder with UTF-8 BOM, launches via system powershell.exe,
-// propagates exit code, and cleans up temp folder. Windows PowerShell 5.1 must be present on target machine.
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
+#if PWX_ENCRYPTED_PAYLOAD
+using System.Security.Cryptography;
+#endif
 using System.Text;
 
 namespace PwX.Stub
 {
     internal static class Program
     {
+#if PWX_ENCRYPTED_PAYLOAD
+        private const string PayloadResource = "PwX.payload.enc";
+#else
         private const string PayloadResource = "PwX.payload.ps1";
+#endif
 
         [DllImport("kernel32.dll")] private static extern uint GetConsoleOutputCP();
         [DllImport("kernel32.dll")] private static extern bool SetConsoleOutputCP(uint cp);
@@ -39,11 +43,23 @@ namespace PwX.Stub
                 Assembly asm = Assembly.GetExecutingAssembly();
                 using (Stream s = asm.GetManifestResourceStream(PayloadResource))
                 {
-                    if (s == null) { Fatal("Gomulu betik bulunamadi."); return 1; }
+                    if (s == null) { Fatal("Gomulu betik bulunamadi: " + PayloadResource); return 1; }
+
+#if PWX_ENCRYPTED_PAYLOAD
+                    byte[] raw;
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        s.CopyTo(ms);
+                        raw = ms.ToArray();
+                    }
+                    byte[] decrypted = DecryptPayload(raw);
+                    File.WriteAllBytes(scriptPath, decrypted);
+#else
                     using (FileStream fs = new FileStream(scriptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                     {
                         s.CopyTo(fs);
                     }
+#endif
                 }
 
                 StringBuilder sb = new StringBuilder();
@@ -126,5 +142,109 @@ namespace PwX.Stub
             Console.Error.WriteLine(message);
 #endif
         }
+
+#if PWX_ENCRYPTED_PAYLOAD
+        private static byte[] DecryptPayload(byte[] pkg)
+        {
+            if (pkg == null || pkg.Length < 8 + 1 + 16 + 2 + 32 + 4)
+                throw new CryptographicException("Gecersiz sifreli paket boyutu.");
+
+            // 1. Magic check: "PWXENC01"
+            byte[] magic = Encoding.ASCII.GetBytes("PWXENC01");
+            for (int i = 0; i < magic.Length; i++)
+            {
+                if (pkg[i] != magic[i]) throw new CryptographicException("Gecersiz sifreli paket basligi (magic header mismatch).");
+            }
+
+            int offset = 8;
+            byte flag = pkg[offset++]; // 0 = standard, 1 = DPAPI bound
+            byte[] iv = new byte[16];
+            Buffer.BlockCopy(pkg, offset, iv, 0, 16);
+            offset += 16;
+
+            ushort keyLen = BitConverter.ToUInt16(pkg, offset);
+            offset += 2;
+            if (offset + keyLen + 32 + 4 > pkg.Length)
+                throw new CryptographicException("Bozuk paket: key uzunlugu siniri asti.");
+
+            byte[] keyBlob = new byte[keyLen];
+            Buffer.BlockCopy(pkg, offset, keyBlob, 0, keyLen);
+            offset += keyLen;
+
+            byte[] tag = new byte[32];
+            Buffer.BlockCopy(pkg, offset, tag, 0, 32);
+            offset += 32;
+
+            int cipherLen = BitConverter.ToInt32(pkg, offset);
+            offset += 4;
+            if (cipherLen < 0 || offset + cipherLen != pkg.Length)
+                throw new CryptographicException("Bozuk paket: cipher uzunlugu uyusmuyor.");
+
+            byte[] cipherBytes = new byte[cipherLen];
+            Buffer.BlockCopy(pkg, offset, cipherBytes, 0, cipherLen);
+
+            // 2. Unprotect Key if machine-bound (DPAPI)
+            byte[] rawKey;
+            if (flag == 1)
+            {
+                byte[] entropy = Encoding.UTF8.GetBytes("PwX-Machine-Binding-Entropy-v1.8.0");
+                try
+                {
+                    rawKey = ProtectedData.Unprotect(keyBlob, entropy, DataProtectionScope.CurrentUser);
+                }
+                catch (Exception ex)
+                {
+                    throw new CryptographicException("Bu calistirilabilir dosya farkli bir makineye veya kullaniciya kilitlenmistir (DPAPI kilidi acilamadi): " + ex.Message);
+                }
+            }
+            else
+            {
+                rawKey = keyBlob;
+            }
+
+            // 3. Verify HMAC-SHA256 (Constant-time comparison)
+            using (HMACSHA256 hmac = new HMACSHA256(rawKey))
+            {
+                using (MemoryStream msHmac = new MemoryStream())
+                {
+                    msHmac.WriteByte(flag);
+                    msHmac.Write(iv, 0, iv.Length);
+                    msHmac.Write(keyBlob, 0, keyBlob.Length);
+                    msHmac.Write(cipherBytes, 0, cipherBytes.Length);
+                    byte[] computedTag = hmac.ComputeHash(msHmac.ToArray());
+
+                    if (!FixedTimeEquals(computedTag, tag))
+                    {
+                        throw new CryptographicException("Sifreli betik veri butunlugu dogrulanamadi (HMAC-SHA256 imzasi gecersiz; dosya degistirilmis olabilir).");
+                    }
+                }
+            }
+
+            // 4. AES-256-CBC Decrypt
+            using (AesCryptoServiceProvider aes = new AesCryptoServiceProvider())
+            {
+                aes.KeySize = 256;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+                aes.Key = rawKey;
+                aes.IV = iv;
+                using (ICryptoTransform decryptor = aes.CreateDecryptor())
+                {
+                    return decryptor.TransformFinalBlock(cipherBytes, 0, cipherBytes.Length);
+                }
+            }
+        }
+
+        private static bool FixedTimeEquals(byte[] a, byte[] b)
+        {
+            if (a == null || b == null || a.Length != b.Length) return false;
+            int diff = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                diff |= (a[i] ^ b[i]);
+            }
+            return diff == 0;
+        }
+#endif
     }
 }

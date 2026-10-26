@@ -47,7 +47,9 @@ param(
     [bool]$Config = $false,
     [bool]$SupportOS = $false,
     [bool]$LongPaths = $false,
-    [bool]$NoOutput = $false
+    [bool]$NoOutput = $false,
+    [switch]$EncryptPayload,
+    [switch]$BindToMachine
 )
 
 Set-StrictMode -Version 2.0
@@ -224,6 +226,69 @@ function Invoke-CodeSign {
             Stop-Build 'PWX5001' "Code signing failed: $($_.Exception.Message)"
         }
     }
+}
+
+# ---------------------------------------------------------------- Payload Protection (v1.8.0)
+function Protect-PwXPayload {
+    param(
+        [byte[]]$PlainBytes,
+        [switch]$BindMachine
+    )
+
+    # Magic Header: PWXENC01 (8 bytes)
+    $magic = [System.Text.Encoding]::ASCII.GetBytes("PWXENC01")
+    $flag = if ($BindMachine) { [byte]1 } else { [byte]0 }
+
+    # Generate 256-bit Key and 128-bit IV
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    $aes.KeySize = 256
+    $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+    $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+    $aes.GenerateKey()
+    $aes.GenerateIV()
+
+    # Encrypt Payload
+    $encryptor = $aes.CreateEncryptor()
+    $cipherBytes = $encryptor.TransformFinalBlock($PlainBytes, 0, $PlainBytes.Length)
+
+    # Key Protection: If BindMachine, protect key via Windows DPAPI (CurrentUser)
+    $keyBytes = $aes.Key
+    if ($BindMachine) {
+        $entropy = [System.Text.Encoding]::UTF8.GetBytes("PwX-Machine-Binding-Entropy-v1.8.0")
+        $keyBytes = [System.Security.Cryptography.ProtectedData]::Protect(
+            $keyBytes,
+            $entropy,
+            [System.Security.Cryptography.DataProtectionScope]::CurrentUser
+        )
+    }
+
+    # HMAC-SHA256 over (Flag + IV + KeyBlob + CipherText) using raw AES key
+    $hmac = New-Object System.Security.Cryptography.HMACSHA256 (,$aes.Key)
+    $msHmac = New-Object System.IO.MemoryStream
+    $msHmac.WriteByte($flag)
+    $msHmac.Write($aes.IV, 0, $aes.IV.Length)
+    $msHmac.Write($keyBytes, 0, $keyBytes.Length)
+    $msHmac.Write($cipherBytes, 0, $cipherBytes.Length)
+    $tag = $hmac.ComputeHash($msHmac.ToArray())
+
+    # Build Final Package:
+    # [Magic: 8B][Flag: 1B][IV: 16B][KeyLen: 2B (ushort, LittleEndian)][KeyBlob: NB][Tag: 32B][CipherLen: 4B (int, LittleEndian)][CipherBytes]
+    $outMs = New-Object System.IO.MemoryStream
+    $outMs.Write($magic, 0, $magic.Length)
+    $outMs.WriteByte($flag)
+    $outMs.Write($aes.IV, 0, $aes.IV.Length)
+
+    $keyLenBytes = [System.BitConverter]::GetBytes([ushort]$keyBytes.Length)
+    $outMs.Write($keyLenBytes, 0, $keyLenBytes.Length)
+    $outMs.Write($keyBytes, 0, $keyBytes.Length)
+
+    $outMs.Write($tag, 0, $tag.Length)
+
+    $cipherLenBytes = [System.BitConverter]::GetBytes([int]$cipherBytes.Length)
+    $outMs.Write($cipherLenBytes, 0, $cipherLenBytes.Length)
+    $outMs.Write($cipherBytes, 0, $cipherBytes.Length)
+
+    return $outMs.ToArray()
 }
 
 # ---------------------------------------------------------------- PS7 prerequisites
@@ -423,9 +488,19 @@ try {
         Write-Log "Windows application manifest generated (ExecutionLevel=$ExecutionLevel, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
     }
 
-    # 7) Payload: normalize with UTF-8 BOM
+    # 7) Payload: normalize with UTF-8 BOM, optionally encrypt (AES-256)
     $payload = Join-Path $workDir 'payload.ps1'
-    [IO.File]::WriteAllText($payload, (Get-ScriptText $src), $script:Utf8Bom)
+    $scriptContent = Get-ScriptText $src
+    $plainBytes = $script:Utf8Bom.GetBytes($scriptContent)
+    if ($EncryptPayload) {
+        $payload = Join-Path $workDir 'payload.enc'
+        $encryptedBytes = Protect-PwXPayload -PlainBytes $plainBytes -BindMachine:$BindToMachine
+        [IO.File]::WriteAllBytes($payload, $encryptedBytes)
+        Write-Log "Payload encrypted with AES-256-CBC + HMAC-SHA256 (BindToMachine=$BindToMachine, Size=$($encryptedBytes.Length) bytes)."
+    }
+    else {
+        [IO.File]::WriteAllBytes($payload, $plainBytes)
+    }
 
     $gui = ($Mode -eq 'Gui')
 
@@ -465,6 +540,7 @@ try {
         $lines = New-Object System.Collections.Generic.List[string]
         $lines.Add('<Project><PropertyGroup>')
         $lines.Add('<PwxPayload>' + (ConvertTo-XmlText $payload) + '</PwxPayload>')
+        $lines.Add('<PwxEncrypted>' + ($EncryptPayload.IsPresent.ToString().ToLowerInvariant()) + '</PwxEncrypted>')
         $lines.Add('<PwxGui>' + $gui.ToString().ToLowerInvariant() + '</PwxGui>')
         $lines.Add('<PwxUtf8>' + (($Utf8 -or $Unicode).ToString().ToLowerInvariant()) + '</PwxUtf8>')
         $lines.Add('<PwxNoOutput>' + $NoOutput.ToString().ToLowerInvariant() + '</PwxNoOutput>')
@@ -575,8 +651,15 @@ using System.Reflection;
         if ($Utf8 -or $Unicode) { $rsp.Add('/utf8output'); $rsp.Add('/define:PWX_UTF8_OUTPUT') }
         if ($NoOutput) { $rsp.Add('/define:PWX_NO_OUTPUT') }
         if ($gui) { $rsp.Add('/define:PWX_GUI') }
+        if ($EncryptPayload) {
+            $rsp.Add('/define:PWX_ENCRYPTED_PAYLOAD')
+            $rsp.Add('/r:System.Security.dll')
+            $rsp.Add('/resource:payload.enc,PwX.payload.enc')
+        }
+        else {
+            $rsp.Add('/resource:payload.ps1,PwX.payload.ps1')
+        }
         $rsp.Add('/out:out.exe')
-        $rsp.Add('/resource:payload.ps1,PwX.payload.ps1')
         if ($iconFull) { Copy-Item -LiteralPath $iconFull -Destination (Join-Path $workDir 'icon.ico'); $rsp.Add('/win32icon:icon.ico') }
         if ($manifest) { $rsp.Add('/win32manifest:app.manifest') }
         $rsp.Add('Stub.cs'); $rsp.Add('AssemblyInfo.cs')

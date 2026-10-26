@@ -93,7 +93,9 @@ function Invoke-Pwxe {
         [bool]$Config = $false,
         [bool]$SupportOS = $false,
         [bool]$LongPaths = $false,
-        [bool]$NoOutput = $false
+        [bool]$NoOutput = $false,
+        [switch]$EncryptPayload,
+        [switch]$BindToMachine
     )
 
     process {
@@ -137,6 +139,8 @@ function Invoke-Pwxe {
         $bArgs.LongPaths = $LongPaths
         $bArgs.NoOutput = $NoOutput
         $bArgs.Architecture = $Architecture
+        if ($EncryptPayload.IsPresent) { $bArgs.EncryptPayload = $true }
+        if ($BindToMachine.IsPresent) { $bArgs.BindToMachine = $true }
 
         if ($Target -eq 'PS7') {
             $bArgs.RuntimeMode = $Runtime
