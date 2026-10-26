@@ -14,12 +14,11 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 
 | Milestone | Status | Key Focus | Target Release |
 | :--- | :--- | :--- | :--- |
-| **v1.0.x** | ✅ Completed | Dual-Engine Core, Exit Code Fidelity, PS7 Module Sanitation | Q4 2026 |
+| **v1.7.0** | ✅ Completed | Authenticode Code Signing, UAC Elevation Manifest Controls | Q4 2026 |
 | **v1.6.4** | ✅ Completed | Security Hardening, Path Planting Protection, Dependency Updates | Q4 2026 |
-| **v1.1.0** | 🟡 In Progress | Security, Code Signing & UAC Manifest Controls | Q1 2027 |
-| **v1.2.0** | 📋 Planned | Third-Party Module Bundling & Size Optimization | Q2 2027 |
-| **v1.3.0** | 📋 Planned | Cross-Platform Runtimes (Linux/macOS) & Windows Services | Q3 2027 |
-| **v2.0.0** | 📋 Planned | .NET 10 LTS Migration (ahead of .NET 8 Nov 2026 EOL) | Q3 2026 / Q4 2026 |
+| **v1.8.0** | 🟡 In Progress | Payload Encryption (AES-256) & Antivirus Mitigation | Q1 2027 |
+| **v1.9.0** | 📋 Planned | Smart Stub, Custom Module Bundling & Size Optimization | Q2 2027 |
+| **v2.0.0** | 📋 Planned | Cross-Platform Runtimes & .NET 10 LTS Migration | Q3 2026 / Q4 2026 |
 
 ---
 
@@ -44,10 +43,10 @@ The current implementation now includes validated PS5.1 and PS7 Console/GUI buil
 ---
 
 ### Milestone 2: v1.1.0 — Security, Signing & Manifest Control
-- [ ] **Authenticode Code Signing:**
+- [x] **Authenticode Code Signing:**
   - `-CertificateThumbprint` / `-CertificateFile` parameters to automatically sign generated `.exe` binaries via `signtool.exe` or `Set-AuthenticodeSignature`.
   - Configurable RFC 3161 timestamping servers.
-- [ ] **UAC Elevation Control:**
+- [x] **UAC Elevation Control:**
   - `-ExecutionLevel` parameter supporting `asInvoker` (default), `requireAdministrator`, and `highestAvailable`.
   - Embedded application manifest (`app.manifest`) generation without external tool dependencies.
 - [ ] **Payload Protection:**

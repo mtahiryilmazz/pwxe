@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS  pwxe PowerShell modülü testleri (manifest, dışa aktarımlar, Invoke-Pwxe uçtan uca).
 .DESCRIPTION
   M-001..M-004 : manifest geçerliliği, sürüm uyumu, dışa aktarılan komut/alias'lar
@@ -85,6 +85,31 @@ if (-not $SkipPS7) {
 Invoke-Check 'M-009' 'Test-PwxeEnvironment çalışır' {
     $null = Test-PwxeEnvironment *>&1
     @($true, '')
+}
+
+# ---- M-010 UAC ExecutionLevel
+$execLevelExe = Join-Path $outRoot 'ps51\exec_level.exe'
+Invoke-Check 'M-010' 'Invoke-Pwxe -ExecutionLevel highestAvailable derler' {
+    $res = Invoke-Pwxe -Source $sample -Output $execLevelExe -Target PS51 -ExecutionLevel highestAvailable -Force
+    @(($res.Success -and (Test-Path -LiteralPath $execLevelExe)), $res.OutputPath)
+}
+
+# ---- M-011 Code Signing
+$signedExe = Join-Path $outRoot 'ps51\signed.exe'
+Invoke-Check 'M-011' 'Invoke-Pwxe Authenticode ile EXE imzalar' {
+    $cert = $null
+    try {
+        $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=PwxeTestSign' -CertStoreLocation 'Cert:\CurrentUser\My'
+        $res = Invoke-Pwxe -Source $sample -Output $signedExe -Target PS51 -CertificateThumbprint $cert.Thumbprint -Force
+        $sig = Get-AuthenticodeSignature -FilePath $signedExe
+        $hasSig = ($sig -and $sig.SignerCertificate -and ($sig.SignerCertificate.Thumbprint -eq $cert.Thumbprint))
+        @(($res.Success -and $hasSig), "İmza: $($sig.Status); Sertifika: $($sig.SignerCertificate.Subject)")
+    }
+    finally {
+        if ($cert) {
+            Remove-Item (Join-Path 'Cert:\CurrentUser\My' $cert.Thumbprint) -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 
 Remove-Module pwxe -ErrorAction SilentlyContinue

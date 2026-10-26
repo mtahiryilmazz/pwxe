@@ -70,6 +70,22 @@ function Invoke-Pwxe {
         [Parameter()]
         [switch]$AutoInstallPrereqs,
 
+        [Parameter()]
+        [ValidateSet('asInvoker', 'requireAdministrator', 'highestAvailable')]
+        [string]$ExecutionLevel = 'asInvoker',
+
+        [Parameter()]
+        [string]$CertificateThumbprint,
+
+        [Parameter()]
+        [string]$CertificateFile,
+
+        [Parameter()]
+        [string]$CertificatePassword,
+
+        [Parameter()]
+        [string]$TimestampServer = 'http://timestamp.digicert.com',
+
         [bool]$Admin = $false,
         [bool]$Utf8 = $true,
         [bool]$Unicode = $false,
@@ -108,6 +124,11 @@ function Invoke-Pwxe {
         if ($FileVersion) { $bArgs.FileVersion = $FileVersion }
         if ($ProductVersion) { $bArgs.ProductVersion = $ProductVersion }
         $bArgs.Admin = $Admin
+        $bArgs.ExecutionLevel = $ExecutionLevel
+        if ($CertificateThumbprint) { $bArgs.CertificateThumbprint = $CertificateThumbprint }
+        if ($CertificateFile) { $bArgs.CertificateFile = $CertificateFile }
+        if ($CertificatePassword) { $bArgs.CertificatePassword = $CertificatePassword }
+        if ($TimestampServer) { $bArgs.TimestampServer = $TimestampServer }
         $bArgs.Utf8 = $Utf8
         $bArgs.Unicode = $Unicode
         $bArgs.Dpi = $Dpi

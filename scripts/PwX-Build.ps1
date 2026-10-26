@@ -36,6 +36,11 @@ param(
     [switch]$TestHooks,
     [switch]$AutoInstallPrereqs,  # PS7: auto-install missing .NET SDK 8+ / repair NuGet source
     [bool]$Admin = $false,
+    [ValidateSet('asInvoker', 'requireAdministrator', 'highestAvailable')][string]$ExecutionLevel = 'asInvoker',
+    [string]$CertificateThumbprint,
+    [string]$CertificateFile,
+    [string]$CertificatePassword,
+    [string]$TimestampServer = 'http://timestamp.digicert.com',
     [bool]$Utf8 = $true,
     [bool]$Unicode = $false,
     [bool]$Dpi = $false,
@@ -106,21 +111,119 @@ function ConvertTo-CsLiteral { param([string]$s) if ($null -eq $s) { $s = '' }; 
 function ConvertTo-XmlText   { param([string]$s) [Security.SecurityElement]::Escape($s) }
 
 function New-AppManifest {
-    param([string]$Path, [bool]$RequireAdmin, [bool]$DpiAware, [bool]$OsSupport, [bool]$LongPathAware)
-    $execution = if ($RequireAdmin) { 'requireAdministrator' } else { 'asInvoker' }
+    param([string]$Path, [string]$ExecutionLevel = 'asInvoker', [bool]$DpiAware = $false, [bool]$OsSupport = $false, [bool]$LongPathAware = $false)
     $windows = if ($DpiAware -or $LongPathAware) {
         $dpiNode = if ($DpiAware) { '<dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware><dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>' } else { '' }
         $longNode = if ($LongPathAware) { '<longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>' } else { '' }
         '<application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>' + $dpiNode + $longNode + '</windowsSettings></application>'
     } else { '' }
     $compat = if ($OsSupport) { '<compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application><supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/><supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}"/></application></compatibility>' } else { '' }
-    $xml = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"><assemblyIdentity version="1.0.0.0" processorArchitecture="*" name="PwXApp" type="win32"/><trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="{0}" uiAccess="false" /></requestedPrivileges></security></trustInfo>{1}{2}</assembly>' -f $execution, $windows, $compat
+    $xml = '<?xml version="1.0" encoding="utf-8" standalone="yes"?><assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0"><assemblyIdentity version="1.0.0.0" processorArchitecture="*" name="PwXApp" type="win32"/><trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="{0}" uiAccess="false" /></requestedPrivileges></security></trustInfo>{1}{2}</assembly>' -f $ExecutionLevel, $windows, $compat
     [IO.File]::WriteAllText($Path, $xml, $script:Utf8NoBom)
 }
 function New-AppConfig {
     param([string]$Path)
     $xml = '<?xml version="1.0" encoding="utf-8"?><configuration><startup useLegacyV2RuntimeActivationPolicy="true"><supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.0"/></startup></configuration>'
     [IO.File]::WriteAllText($Path, $xml, $script:Utf8NoBom)
+}
+
+function Invoke-CodeSign {
+    param(
+        [string]$TargetExe,
+        [string]$Thumbprint,
+        [string]$CertFile,
+        [string]$CertPassword,
+        [string]$Timestamp
+    )
+    if (-not $Thumbprint -and -not $CertFile) { return }
+
+    Write-Log 'Signing executable...'
+    $cert = $null
+    $cleanThumb = $null
+    if ($Thumbprint) {
+        $cleanThumb = ($Thumbprint -replace '\s+', '').ToUpperInvariant()
+        $cert = Get-ChildItem -Path Cert:\CurrentUser\My, Cert:\LocalMachine\My -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Thumbprint -eq $cleanThumb } | Select-Object -First 1
+        if (-not $cert) {
+            Stop-Build 'PWX5001' "Code signing certificate with thumbprint '$Thumbprint' not found in Cert:\CurrentUser\My or Cert:\LocalMachine\My."
+        }
+    }
+    elseif ($CertFile) {
+        $fullCertPath = (Resolve-Path -LiteralPath $CertFile -ErrorAction SilentlyContinue).Path
+        if (-not $fullCertPath -or -not (Test-Path -LiteralPath $fullCertPath)) {
+            Stop-Build 'PWX5001' "Code signing certificate file not found: $CertFile"
+        }
+        try {
+            if ($CertPassword) {
+                $secPass = if ($CertPassword -is [System.Security.SecureString]) { $CertPassword } else { ConvertTo-SecureString $CertPassword -AsPlainText -Force }
+                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($fullCertPath, $secPass, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+            } else {
+                $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($fullCertPath)
+            }
+        }
+        catch {
+            Stop-Build 'PWX5001' "Failed to load certificate from $CertFile : $($_.Exception.Message)"
+        }
+    }
+
+    # 1. Try signtool.exe if available (best RFC 3161 timestamping)
+    $signtool = $null
+    $cmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if ($cmd) { $signtool = $cmd.Source }
+    else {
+        $kitsBin = "${env:ProgramFiles(x86)}\Windows Kits\10\bin"
+        if (Test-Path -LiteralPath $kitsBin) {
+            $cands = @(Get-ChildItem -LiteralPath $kitsBin -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match 'x64' })
+            if ($cands.Count -gt 0) { $signtool = $cands[0].FullName }
+        }
+    }
+
+    $signed = $false
+    if ($signtool) {
+        Write-Log "Using signtool: $signtool" 'Debug'
+        $stArgs = New-Object System.Collections.Generic.List[string]
+        $stArgs.Add('sign'); $stArgs.Add('/fd'); $stArgs.Add('SHA256')
+        if ($Timestamp) {
+            $stArgs.Add('/tr'); $stArgs.Add($Timestamp); $stArgs.Add('/td'); $stArgs.Add('SHA256')
+        }
+        if ($cleanThumb) {
+            $stArgs.Add('/sha1'); $stArgs.Add($cleanThumb)
+        }
+        elseif ($CertFile) {
+            $stArgs.Add('/f'); $stArgs.Add($fullCertPath)
+            if ($CertPassword) { $stArgs.Add('/p'); $stArgs.Add($CertPassword) }
+        }
+        $stArgs.Add($TargetExe)
+        $code = Invoke-Native $signtool $stArgs.ToArray() (Split-Path -Parent $TargetExe)
+        if ($code -eq 0) {
+            $signed = $true
+            Write-Log 'Binary successfully signed with signtool.'
+        }
+        else {
+            Write-Log "signtool failed (exit code $code), attempting fallback to Set-AuthenticodeSignature..." 'Warning'
+        }
+    }
+
+    if (-not $signed) {
+        try {
+            $signArgs = @{
+                FilePath      = $TargetExe
+                Certificate   = $cert
+                HashAlgorithm = 'SHA256'
+            }
+            if ($Timestamp) { $signArgs.TimestampServer = $Timestamp }
+            $sigResult = Set-AuthenticodeSignature @signArgs
+            if ($sigResult.Status -eq 'Valid' -or $sigResult.Status -eq 'UnknownError') {
+                Write-Log "Binary signed with Set-AuthenticodeSignature (Status: $($sigResult.Status))."
+            }
+            else {
+                Write-Log "Set-AuthenticodeSignature returned status: $($sigResult.Status) - $($sigResult.StatusMessage)" 'Warning'
+            }
+        }
+        catch {
+            Stop-Build 'PWX5001' "Code signing failed: $($_.Exception.Message)"
+        }
+    }
 }
 
 # ---------------------------------------------------------------- PS7 prerequisites
@@ -313,10 +416,11 @@ try {
     New-Item -ItemType Directory -Path $workDir | Out-Null
     Write-Log "Workspace: $workDir" 'Debug'
     $manifest = $null
-    if ($Admin -or $Dpi -or $SupportOS -or $LongPaths) {
+    if ($Admin -and $ExecutionLevel -eq 'asInvoker') { $ExecutionLevel = 'requireAdministrator' }
+    if ($ExecutionLevel -ne 'asInvoker' -or $Dpi -or $SupportOS -or $LongPaths) {
         $manifest = Join-Path $workDir 'app.manifest'
-        New-AppManifest $manifest $Admin $Dpi $SupportOS $LongPaths
-        Write-Log "Windows application manifest generated (Admin=$Admin, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
+        New-AppManifest $manifest $ExecutionLevel $Dpi $SupportOS $LongPaths
+        Write-Log "Windows application manifest generated (ExecutionLevel=$ExecutionLevel, DPI=$Dpi, SupportOS=$SupportOS, LongPaths=$LongPaths)." 'Debug'
     }
 
     # 7) Payload: normalize with UTF-8 BOM
@@ -490,6 +594,11 @@ using System.Reflection;
     $fi = Get-Item -LiteralPath $finalExe
     $mz = [IO.File]::ReadAllBytes($finalExe)[0..1]
     if ($fi.Length -le 0 -or $mz[0] -ne 0x4D -or $mz[1] -ne 0x5A) { Stop-Build 'PWX4002' 'Output is not a valid Windows executable.' }
+
+    # 9) Optional Authenticode code signing
+    if ($CertificateThumbprint -or $CertificateFile) {
+        Invoke-CodeSign $finalExe $CertificateThumbprint $CertificateFile $CertificatePassword $TimestampServer
+    }
 
     $result.Success = $true
     $result.OutputPath = $finalExe

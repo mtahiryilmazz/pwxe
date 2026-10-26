@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.6.4-blue.svg?style=flat-square" alt="Latest Release"></a>
+  <a href="https://github.com/mtahiryilmazz/pwxe/releases/latest"><img src="https://img.shields.io/badge/release-v1.7.0-blue.svg?style=flat-square" alt="Latest Release"></a>
   <a href="https://www.powershellgallery.com/packages/pwxe"><img src="https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery" alt="PowerShell Gallery: pwxe"></a>
   <a href="https://www.nuget.org/packages/pwxe"><img src="https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet" alt="NuGet: pwxe"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License: MIT"></a>
@@ -27,6 +27,7 @@
   - **PowerShell 7.4+:** Compiles modern scripts using `.NET 8 SDK` and `Microsoft.PowerShell.SDK`.
 - **📦 Single-File Packaging:** Option to embed all PS7 runtime libraries into a single, self-contained `.exe`.
 - **🖼️ Icon & Form Integration:** Automatic PE header icon embedding + WinForms runtime icon bootstrapping.
+- **🛡️ Authenticode & UAC Control:** Automated code signing and native application manifest elevation control.
 
 ---
 
@@ -47,9 +48,11 @@ The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target
 
 > [!NOTE]
 > **.NET 8 LTS Lifecycle & Transition:**
-> .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.6.4 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
+> .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.7.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
 
-### 🛡️ Security Hardening in v1.6.4
+### 🛡️ Security & Signing in v1.7.0
+- **Authenticode Digital Code Signing:** Sign output binaries automatically via `signtool.exe` (with RFC 3161 timestamps) or fallback `Set-AuthenticodeSignature`.
+- **UAC Elevation Control:** Custom manifest generation with `-ExecutionLevel asInvoker | requireAdministrator | highestAvailable`.
 - **Host Error Log Isolation:** Production EXEs do not accept arbitrary error log file redirection via `PWX_ERROR_LOG`.
 - **Search Path Protection:** Engine script resolution rejects untrusted paths (CWD, Downloads, Desktop) to prevent planting attacks.
 - **Archive Hygiene & Zip Slip:** Clean `.nupkg` packaging excluding `bin/` and `obj/` intermediate artifacts; path-traversal prevention during zip extraction.
@@ -132,6 +135,11 @@ Invoke-Pwxe -Source .\modern.ps1 `
 | `-Title` | String | File name | Product name and description |
 | `-CompanyName` | String | `$null` | Company/Publisher name |
 | `-FileVersion` | String | `1.0.0.0` | Assembly file version |
+| `-ExecutionLevel` | String | `asInvoker` | Manifest execution level (`asInvoker`, `requireAdministrator`, `highestAvailable`) |
+| `-CertificateThumbprint` | String | `$null` | SHA1 certificate thumbprint from Windows Cert store for signing |
+| `-CertificateFile` | String | `$null` | Path to `.pfx` or certificate file for signing |
+| `-CertificatePassword` | String | `$null` | Password for `-CertificateFile` |
+| `-TimestampServer` | String | Digicert URL | RFC 3161 timestamp server URL (default: Digicert) |
 | `-Force` | Switch | `False` | Overwrite existing output |
 
 ---
