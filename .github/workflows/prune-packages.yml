@@ -1,0 +1,51 @@
+name: Prune GitHub Package Versions
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune:
+    name: Prune older pwxe package versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune older package versions
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $headers = @{
+            'Authorization' = "Bearer $env:GH_TOKEN"
+            'Accept' = 'application/vnd.github+json'
+            'X-GitHub-Api-Version' = '2022-11-28'
+          }
+
+          Write-Host "Fetching package versions for pwxe..."
+          try {
+            $uri = "https://api.github.com/users/mtahiryilmazz/packages/nuget/pwxe/versions"
+            $versions = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get
+            Write-Host "Found $($versions.Count) versions."
+
+            $keepVersions = @('1.7.0', '1.6.4')
+            foreach ($v in $versions) {
+              $vName = $v.name
+              $vId = $v.id
+              if ($vName -notin $keepVersions) {
+                Write-Host "Deleting older version $vName (ID: $vId)..."
+                try {
+                  $delUri = "https://api.github.com/user/packages/nuget/pwxe/versions/$vId"
+                  Invoke-RestMethod -Uri $delUri -Headers $headers -Method Delete
+                  Write-Host "Successfully deleted version $vName."
+                } catch {
+                  Write-Host "Failed to delete $vName : $($_.Exception.Message)"
+                }
+              } else {
+                Write-Host "Keeping version $vName (Protected)"
+              }
+            }
+          } catch {
+            Write-Host "Error accessing packages API: $($_.Exception.Message)"
+          }
