@@ -493,15 +493,14 @@ try {
     # 7) Payload: normalize with UTF-8 BOM, optionally encrypt (AES-256)
     $payload = Join-Path $workDir 'payload.ps1'
     $scriptContent = Get-ScriptText $src
-    $plainBytes = $script:Utf8Bom.GetBytes($scriptContent)
+    [IO.File]::WriteAllText($payload, $scriptContent, $script:Utf8Bom)
     if ($EncryptPayload) {
-        $payload = Join-Path $workDir 'payload.enc'
+        $plainBytes = [IO.File]::ReadAllBytes($payload)
+        $payloadEnc = Join-Path $workDir 'payload.enc'
         $encryptedBytes = Protect-PwXPayload -PlainBytes $plainBytes -BindMachine:$BindToMachine
-        [IO.File]::WriteAllBytes($payload, $encryptedBytes)
+        [IO.File]::WriteAllBytes($payloadEnc, $encryptedBytes)
+        $payload = $payloadEnc
         Write-Log "Payload encrypted with AES-256-CBC + HMAC-SHA256 (BindToMachine=$BindToMachine, Size=$($encryptedBytes.Length) bytes)."
-    }
-    else {
-        [IO.File]::WriteAllBytes($payload, $plainBytes)
     }
 
     $gui = ($Mode -eq 'Gui')
