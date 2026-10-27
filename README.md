@@ -21,7 +21,7 @@
 - **⚡ Dual Target Runtimes:**
   - **PowerShell 5.1:** Uses Windows native `csc.exe` (Roslyn / .NET Framework) to build ultra-lightweight (~500 KB) executables in under 0.5 seconds.
   - **PowerShell 7.4+:** Compiles modern scripts using `.NET 8 SDK` and `Microsoft.PowerShell.SDK`.
-- **🧠 Zero-Subprocess In-Process Hosting (v1.9.0):** Option to run scripts in-memory via direct `System.Management.Automation` Runspaces (`-HostMode InProcess` or `-InProcess`), eliminating external child `powershell.exe` process invocation.
+- **🧠 Zero-Subprocess In-Process Hosting (v2.0.0):** Option to run scripts in-memory via direct `System.Management.Automation` Runspaces (`-HostMode InProcess` or `-InProcess`), eliminating external child `powershell.exe` process invocation.
 - **📦 Single-File Packaging:** Option to embed all PS7 runtime libraries into a single, self-contained `.exe`.
 - **🖼️ Icon & Form Integration:** Automatic PE header icon embedding + WinForms runtime icon bootstrapping.
 - **🛡️ Authenticode & UAC Control:** Automated code signing and native application manifest elevation control.
@@ -44,11 +44,11 @@ The engine supports x86/x64, administrator execution, DPI awareness, Windows com
 The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target machine only needs the runtime listed above.
 
 > **.NET 8 LTS Lifecycle & Transition:**  
-> .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.7.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
+> .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v2.0.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
 
-### 🛡️ Security & Features in v1.9.0
-- **In-Process Runspace Hosting:** Compile Windows PowerShell 5.1 scripts to execute within memory (`-HostMode InProcess` / `-InProcess`) without spawning child processes.
-- **Payload Protection & Encryption (v1.8.0):** AES-256-CBC payload encryption (`-EncryptPayload`) with HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope). Prevents plaintext script exposure in binary inspection.
+### 🛡️ Security & Features in v2.0.0
+- **In-Process Runspace Hosting (v2.0.0):** Compile Windows PowerShell 5.1 scripts to execute within memory (`-HostMode InProcess` / `-InProcess`) without spawning child processes.
+- **Payload Protection & Encryption:** AES-256-CBC payload encryption (`-EncryptPayload`) with HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope). Prevents plaintext script exposure in binary inspection.
 - **Machine & User Binding (DPAPI):** Optional machine binding (`-BindToMachine`) encrypts the AES key via Windows Data Protection API (DPAPI), ensuring the binary executes solely on the designated build machine and user context.
 - **Authenticode Digital Code Signing:** Sign output binaries automatically via `signtool.exe` (with RFC 3161 timestamps) or fallback `Set-AuthenticodeSignature`.
 - **UAC Elevation Control:** Custom manifest generation with `-ExecutionLevel asInvoker | requireAdministrator | highestAvailable`.
@@ -123,6 +123,8 @@ Invoke-Pwxe -Source .\modern.ps1 `
 | `-Output` | String | `Source.exe` | Output `.exe` path |
 | `-Target` | `PS51` / `PS7` | `PS51` | Target PowerShell engine |
 | `-Mode` | `Console` / `Gui` | `Console` | Console window visibility |
+| `-HostMode` | `Subprocess` / `InProcess` | `Subprocess` | PS51 execution host: child process (`powershell.exe`) or in-memory SMA Runspace |
+| `-InProcess` | Switch | `False` | Shorthand switch for `-HostMode InProcess` |
 | `-Runtime` | `SelfContained` / `FrameworkDependent` | `SelfContained` | PS7 runtime bundling |
 | `-SingleFile` | Switch | `False` | Embed all dependencies into single `.exe` (PS7) |
 | `-EnableTrim` | Switch | `False` | **Experimental.** `PublishTrimmed`; requires `-Runtime SelfContained` (PowerShell uses reflection - test the output) |

@@ -75,7 +75,20 @@ The current implementation now includes validated PS5.1 and PS7 Console/GUI buil
 
 ---
 
-### Milestone 4: v1.3.0 — Cross-Platform Compilation & Windows Services
+### Milestone 4: v2.0.0 — Grand Final Major Release (Enterprise Hardening & Zero-Subprocess Production)
+- [x] **Zero-Subprocess In-Process Runspace Hosting (PS5.1):**
+  - Fully integrated in-memory execution via native `System.Management.Automation` Runspaces (`-HostMode InProcess` / `-InProcess`).
+  - Native Windows API console codepage configuration (CP 65001 / UTF-8) across InProcess and Subprocess modes.
+  - Complete AST parameter parser (`ScriptArguments`), exit code capture, and seamless AES-256/DPAPI payload encryption.
+- [x] **Universal Encoding & CI Stability:**
+  - Full UTF-8 BOM test suite validation ensuring 100% CI pass rate across all Windows runners.
+  - Cross-architecture and dual-engine test coverage (Module, PS7 GUI, Smoke tests).
+- [x] **Production Multi-Channel Publishing:**
+  - Automated dual-channel release to PowerShell Gallery (`PSGallery`) and NuGet.org with OIDC authentication.
+
+---
+
+### Future Exploration: Cross-Platform Compilation & Windows Services
 - [ ] **Cross-Platform Host Targets:**
   - Compile to native Linux ELF (`linux-x64`, `linux-arm64`) and macOS Mach-O (`osx-x64`, `osx-arm64`) executables from Windows or Linux hosts.
 - [ ] **Windows Service Wrapper Mode:**
