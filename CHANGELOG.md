@@ -8,6 +8,16 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ---
 
+## [1.9.0] — 2026-10-27
+
+### Added
+- **In-Process Runspace Hosting (`-HostMode InProcess` / `-InProcess`):** Added zero-subprocess in-memory execution mode for Windows PowerShell 5.1 target.
+  - Scripts execute directly inside an in-memory `Runspace` with `System.Management.Automation` instead of spawning a separate `powershell.exe` child process.
+  - Eliminates process creation overhead and hides execution from external process monitors.
+  - High-fidelity parameter binding via AST parser (`ScriptArguments.Apply`), full exit code propagation (`exit N`), Unicode/Turkish character fidelity, and complete AES-256 encrypted payload compatibility.
+  - Backward compatibility guaranteed: defaults to proven `Subprocess` launcher mode.
+- **Automated Verification:** Added `tests/Test-InProcessMode.ps1` (6/6 tests PASS) and updated `tests/Run-Smoke.ps1` (25/25 tests PASS). Added `tests/Test-InProcessHybrid.ps1` (20/20 critical cmdlets PASS).
+
 ## [1.8.0] — 2026-10-26
 
 ### Added

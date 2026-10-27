@@ -17,7 +17,7 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 | **v1.8.0** | ✅ Completed | Payload Encryption (AES-256), DPAPI Machine Binding & Test Suite | Q4 2026 |
 | **v1.7.0** | ✅ Completed | Authenticode Code Signing, UAC Elevation Manifest Controls | Q4 2026 |
 | **v1.6.4** | ✅ Completed | Security Hardening, Path Planting Protection, Dependency Updates | Q4 2026 |
-| **v1.9.0** | 📋 Planned | Smart Stub, Custom Module Bundling & Size Optimization | Q2 2027 |
+| **v1.9.0** | 🚀 Released | In-Process Hosting, Zero-Subprocess SMA Runspaces | Q4 2026 |
 | **v2.0.0** | 📋 Planned | Cross-Platform Runtimes & .NET 10 LTS Migration | Q3 2026 / Q4 2026 |
 
 ---
@@ -59,7 +59,10 @@ The current implementation now includes validated PS5.1 and PS7 Console/GUI buil
 
 ---
 
-### Milestone 3: v1.9.0 — Smart Stub, Custom Module Bundling & Performance
+### Milestone 3: v1.9.0 — In-Process Hosting, Module Bundling & Performance
+- [x] **Zero-Subprocess In-Process Runspace Hosting:**
+  - Direct in-memory execution via `System.Management.Automation` for Windows PowerShell 5.1 (`-HostMode InProcess` / `-InProcess`).
+  - AST-based parameter parser (`ScriptArguments`), exit code propagation, and full DPAPI/AES-256 payload protection integration.
 - [ ] **Smart Stub Shared Runtime Extraction:**
   - Authenticode-verified, SHA-256 integrity-checked shared PowerShell runtime cache in `%LOCALAPPDATA%\pwxe\runtime`.
 - [ ] **Custom Module Bundling (`-IncludeModules`):**

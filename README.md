@@ -3,7 +3,7 @@
 **Modern, ultra-fast and standalone PowerShell script to EXE build engine.**  
 *Convert PowerShell scripts into native Windows executables with zero external dependencies.*
 
-[![Latest Release](https://img.shields.io/badge/release-v1.8.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
+[![Latest Release](https://img.shields.io/badge/release-v1.9.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
 [![PowerShell Gallery: pwxe](https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery)](https://www.powershellgallery.com/packages/pwxe)
 [![NuGet: pwxe](https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/pwxe)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/blob/main/LICENSE)
@@ -21,6 +21,7 @@
 - **⚡ Dual Target Runtimes:**
   - **PowerShell 5.1:** Uses Windows native `csc.exe` (Roslyn / .NET Framework) to build ultra-lightweight (~500 KB) executables in under 0.5 seconds.
   - **PowerShell 7.4+:** Compiles modern scripts using `.NET 8 SDK` and `Microsoft.PowerShell.SDK`.
+- **🧠 Zero-Subprocess In-Process Hosting (v1.9.0):** Option to run scripts in-memory via direct `System.Management.Automation` Runspaces (`-HostMode InProcess` or `-InProcess`), eliminating external child `powershell.exe` process invocation.
 - **📦 Single-File Packaging:** Option to embed all PS7 runtime libraries into a single, self-contained `.exe`.
 - **🖼️ Icon & Form Integration:** Automatic PE header icon embedding + WinForms runtime icon bootstrapping.
 - **🛡️ Authenticode & UAC Control:** Automated code signing and native application manifest elevation control.
@@ -45,8 +46,9 @@ The PS7 build machine needs a .NET 8 SDK and an enabled NuGet source. The target
 > **.NET 8 LTS Lifecycle & Transition:**  
 > .NET 8 LTS reaches official end of support on November 10, 2026. `pwxe` v1.7.0 ships with `Microsoft.PowerShell.SDK 7.4.7` and zero reported vulnerabilities. Ahead of the EOL milestone, a direct transition path to .NET 10 LTS is scheduled in the project roadmap.
 
-### 🛡️ Security & Signing in v1.8.0
-- **Payload Protection & Encryption:** AES-256-CBC payload encryption (`-EncryptPayload`) with HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope). Prevents plaintext script exposure in binary inspection.
+### 🛡️ Security & Features in v1.9.0
+- **In-Process Runspace Hosting:** Compile Windows PowerShell 5.1 scripts to execute within memory (`-HostMode InProcess` / `-InProcess`) without spawning child processes.
+- **Payload Protection & Encryption (v1.8.0):** AES-256-CBC payload encryption (`-EncryptPayload`) with HMAC-SHA256 authenticated integrity tags (`PWXENC01` envelope). Prevents plaintext script exposure in binary inspection.
 - **Machine & User Binding (DPAPI):** Optional machine binding (`-BindToMachine`) encrypts the AES key via Windows Data Protection API (DPAPI), ensuring the binary executes solely on the designated build machine and user context.
 - **Authenticode Digital Code Signing:** Sign output binaries automatically via `signtool.exe` (with RFC 3161 timestamps) or fallback `Set-AuthenticodeSignature`.
 - **UAC Elevation Control:** Custom manifest generation with `-ExecutionLevel asInvoker | requireAdministrator | highestAvailable`.

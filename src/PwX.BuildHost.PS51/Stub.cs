@@ -6,6 +6,17 @@ using System.Runtime.InteropServices;
 #if PWX_ENCRYPTED_PAYLOAD
 using System.Security.Cryptography;
 #endif
+#if PWX_INPROCESS
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Host;
+using System.Management.Automation.Language;
+using System.Management.Automation.Runspaces;
+using System.Threading;
+#endif
 using System.Text;
 
 namespace PwX.Stub
@@ -29,12 +40,14 @@ namespace PwX.Stub
             uint oldCp = 0;
             try
             {
+#if !PWX_INPROCESS
                 string psExe = Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
                 if (!File.Exists(psExe))
                 {
                     Fatal("Windows PowerShell 5.1 (powershell.exe) bulunamadi: " + psExe);
                     return 1;
                 }
+#endif
 
                 workDir = Path.Combine(Path.GetTempPath(), "pwx-" + Guid.NewGuid().ToString("N"));
                 Directory.CreateDirectory(workDir);
@@ -62,6 +75,50 @@ namespace PwX.Stub
 #endif
                 }
 
+#if PWX_INPROCESS
+                string scriptText = File.ReadAllText(scriptPath, Encoding.UTF8);
+                InitialSessionState iss = InitialSessionState.CreateDefault();
+                var host = new PwxInProcessHost();
+                using (Runspace rs = RunspaceFactory.CreateRunspace(host, iss))
+                {
+#if PWX_GUI
+                    rs.ApartmentState = ApartmentState.STA;
+#endif
+                    rs.Open();
+                    using (PowerShell ps = PowerShell.Create())
+                    {
+                        ps.Runspace = rs;
+                        ps.AddScript(scriptText);
+                        ScriptArguments.Apply(ps, scriptText, args);
+
+#if !PWX_NO_OUTPUT
+                        Collection<PSObject> results = ps.Invoke();
+#if !PWX_GUI
+                        foreach (var item in results)
+                        {
+                            if (item != null) Console.WriteLine(item.ToString());
+                        }
+#endif
+#else
+                        ps.Invoke();
+#endif
+
+                        if (host.ShouldExit) return host.ExitCode;
+
+                        if (ps.HadErrors && ps.Streams.Error.Count > 0)
+                        {
+#if !PWX_NO_OUTPUT && !PWX_GUI
+                            foreach (var err in ps.Streams.Error)
+                            {
+                                if (err != null) Console.Error.WriteLine(err.ToString());
+                            }
+#endif
+                            return 1;
+                        }
+                        return 0;
+                    }
+                }
+#else
                 StringBuilder sb = new StringBuilder();
                 sb.Append("-NoProfile -ExecutionPolicy Bypass -STA ");
 #if PWX_GUI
@@ -92,6 +149,7 @@ namespace PwX.Stub
                     p.WaitForExit();
                     return p.ExitCode;
                 }
+#endif
             }
             catch (Exception ex)
             {
@@ -247,4 +305,138 @@ namespace PwX.Stub
         }
 #endif
     }
+
+#if PWX_INPROCESS
+    internal sealed class PwxInProcessHost : PSHost
+    {
+        private readonly PwxInProcessUI _ui = new PwxInProcessUI();
+        private readonly Guid _instanceId = Guid.NewGuid();
+
+        internal bool ShouldExit { get; private set; }
+        internal int ExitCode { get; private set; }
+
+        public override string Name { get { return "PwX InProcess Host"; } }
+        public override Version Version { get { return typeof(PowerShell).Assembly.GetName().Version; } }
+        public override Guid InstanceId { get { return _instanceId; } }
+        public override PSHostUserInterface UI { get { return _ui; } }
+        public override CultureInfo CurrentCulture { get { return Thread.CurrentThread.CurrentCulture; } }
+        public override CultureInfo CurrentUICulture { get { return Thread.CurrentThread.CurrentUICulture; } }
+
+        public override void SetShouldExit(int exitCode)
+        {
+            ExitCode = exitCode;
+            ShouldExit = true;
+        }
+
+        public override void EnterNestedPrompt() { }
+        public override void ExitNestedPrompt() { }
+        public override void NotifyBeginApplication() { }
+        public override void NotifyEndApplication() { }
+    }
+
+    internal sealed class PwxInProcessUI : PSHostUserInterface
+    {
+        public override PSHostRawUserInterface RawUI { get { return null; } }
+        public override string ReadLine() { return Console.ReadLine(); }
+        public override System.Security.SecureString ReadLineAsSecureString() { return null; }
+        public override void Write(string value) { Console.Write(value); }
+        public override void Write(ConsoleColor foregroundColor, ConsoleColor backgroundColor, string value) { Console.Write(value); }
+        public override void WriteLine(string value) { Console.WriteLine(value); }
+        public override void WriteErrorLine(string value) { Console.Error.WriteLine(value); }
+        public override void WriteDebugLine(string message) { }
+        public override void WriteProgress(long sourceId, ProgressRecord record) { }
+        public override void WriteVerboseLine(string message) { }
+        public override void WriteWarningLine(string message) { Console.WriteLine("[UYARI] " + message); }
+        public override System.Collections.Generic.Dictionary<string, PSObject> Prompt(string caption, string message, Collection<FieldDescription> descriptions) { return null; }
+        public override PSCredential PromptForCredential(string caption, string message, string userName, string targetName) { return null; }
+        public override PSCredential PromptForCredential(string caption, string message, string userName, string targetName, PSCredentialTypes allowedCredentialTypes, PSCredentialUIOptions options) { return null; }
+        public override int PromptForChoice(string caption, string message, Collection<ChoiceDescription> choices, int defaultChoice) { return defaultChoice; }
+    }
+
+    internal static class ScriptArguments
+    {
+        internal static void Apply(PowerShell ps, string scriptText, string[] args)
+        {
+            if (args == null || args.Length == 0) return;
+            Dictionary<string, bool> declared = GetDeclaredParameters(scriptText);
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                string token = args[i];
+                if (!IsParameterToken(token)) { ps.AddArgument(token); continue; }
+
+                string name = token.Substring(1);
+                string inlineValue = null;
+                int colon = name.IndexOf(':');
+                if (colon > 0)
+                {
+                    inlineValue = name.Substring(colon + 1);
+                    name = name.Substring(0, colon);
+                }
+
+                bool isSwitch = IsSwitch(declared, name);
+
+                if (isSwitch)
+                {
+                    if (inlineValue == null) ps.AddParameter(name);
+                    else ps.AddParameter(name, ParseBool(inlineValue));
+                }
+                else if (inlineValue != null)
+                {
+                    ps.AddParameter(name, inlineValue);
+                }
+                else if (i + 1 < args.Length && !IsParameterToken(args[i + 1]))
+                {
+                    ps.AddParameter(name, args[++i]);
+                }
+                else
+                {
+                    ps.AddParameter(name);
+                }
+            }
+        }
+
+        internal static bool IsParameterToken(string s)
+        {
+            return s != null && s.Length > 1 && s[0] == '-' && (char.IsLetter(s[1]) || s[1] == '_');
+        }
+
+        private static bool IsSwitch(Dictionary<string, bool> declared, string name)
+        {
+            bool sw;
+            if (declared.TryGetValue(name, out sw)) return sw;
+            var matches = declared.Where(kv => kv.Key.StartsWith(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            return matches.Count == 1 && matches[0].Value;
+        }
+
+        private static bool ParseBool(string text)
+        {
+            string t = text.Trim().TrimStart('$');
+            if (t.Equals("true", StringComparison.OrdinalIgnoreCase) || t == "1") return true;
+            if (t.Equals("false", StringComparison.OrdinalIgnoreCase) || t == "0") return false;
+            throw new ArgumentException("Gecersiz [switch] degeri: " + text);
+        }
+
+        private static Dictionary<string, bool> GetDeclaredParameters(string scriptText)
+        {
+            var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            Token[] tokens;
+            ParseError[] errors;
+            ScriptBlockAst ast = Parser.ParseInput(scriptText, out tokens, out errors);
+            if (ast == null || ast.ParamBlock == null) return map;
+
+            foreach (ParameterAst p in ast.ParamBlock.Parameters)
+            {
+                bool isSwitch = p.Attributes.OfType<TypeConstraintAst>().Any(tc =>
+                {
+                    string n = tc.TypeName.Name;
+                    return n.Equals("switch", StringComparison.OrdinalIgnoreCase)
+                        || n.EndsWith("SwitchParameter", StringComparison.OrdinalIgnoreCase);
+                });
+                map[p.Name.VariablePath.UserPath] = isSwitch;
+            }
+            return map;
+        }
+    }
+#endif
 }

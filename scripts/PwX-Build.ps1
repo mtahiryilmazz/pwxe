@@ -49,7 +49,9 @@ param(
     [bool]$LongPaths = $false,
     [bool]$NoOutput = $false,
     [switch]$EncryptPayload,
-    [switch]$BindToMachine
+    [switch]$BindToMachine,
+    [ValidateSet('Subprocess', 'InProcess')][string]$HostMode = 'Subprocess',
+    [switch]$InProcess
 )
 
 Set-StrictMode -Version 2.0
@@ -658,6 +660,20 @@ using System.Reflection;
         }
         else {
             $rsp.Add('/resource:payload.ps1,PwX.payload.ps1')
+        }
+        if ($InProcess) { $HostMode = 'InProcess' }
+        if ($HostMode -eq 'InProcess') {
+            $smaDll = Join-Path $env:windir 'Microsoft.Net\assembly\GAC_MSIL\System.Management.Automation\v4.0_3.0.0.0__31bf3856ad364e35\System.Management.Automation.dll'
+            if (-not (Test-Path -LiteralPath $smaDll)) {
+                $cands = @(Get-ChildItem -Path "$env:windir\Microsoft.Net\assembly\GAC_MSIL\System.Management.Automation" -Filter System.Management.Automation.dll -Recurse -ErrorAction SilentlyContinue)
+                if ($cands.Count -gt 0) { $smaDll = $cands[0].FullName }
+            }
+            if (-not $smaDll -or -not (Test-Path -LiteralPath $smaDll)) {
+                Stop-Build 'PWX3104' "System.Management.Automation.dll for .NET Framework 4.8 not found in GAC; cannot compile InProcess host."
+            }
+            $rsp.Add('/define:PWX_INPROCESS')
+            $rsp.Add('/r:"' + $smaDll + '"')
+            Write-Log 'Configured PS51 In-Process Host (zero subprocess mode via SMA runspace).'
         }
         $rsp.Add('/out:out.exe')
         if ($iconFull) { Copy-Item -LiteralPath $iconFull -Destination (Join-Path $workDir 'icon.ico'); $rsp.Add('/win32icon:icon.ico') }

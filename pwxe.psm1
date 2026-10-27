@@ -95,7 +95,9 @@ function Invoke-Pwxe {
         [bool]$LongPaths = $false,
         [bool]$NoOutput = $false,
         [switch]$EncryptPayload,
-        [switch]$BindToMachine
+        [switch]$BindToMachine,
+        [ValidateSet('Subprocess', 'InProcess')][string]$HostMode = 'Subprocess',
+        [switch]$InProcess
     )
 
     process {
@@ -141,6 +143,8 @@ function Invoke-Pwxe {
         $bArgs.Architecture = $Architecture
         if ($EncryptPayload.IsPresent) { $bArgs.EncryptPayload = $true }
         if ($BindToMachine.IsPresent) { $bArgs.BindToMachine = $true }
+        if ($HostMode) { $bArgs.HostMode = $HostMode }
+        if ($InProcess.IsPresent) { $bArgs.InProcess = $true }
 
         if ($Target -eq 'PS7') {
             $bArgs.RuntimeMode = $Runtime
