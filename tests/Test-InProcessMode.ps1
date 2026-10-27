@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Integration test suite for pwxe InProcess hosting mode (-HostMode InProcess / -InProcess).

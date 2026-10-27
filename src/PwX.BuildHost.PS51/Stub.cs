@@ -40,6 +40,15 @@ namespace PwX.Stub
             uint oldCp = 0;
             try
             {
+#if PWX_UTF8_OUTPUT && !PWX_GUI
+                try
+                {
+                    oldCp = GetConsoleOutputCP();
+                    if (oldCp != 0) SetConsoleOutputCP(65001);
+                    Console.OutputEncoding = Encoding.UTF8;
+                }
+                catch { }
+#endif
 #if !PWX_INPROCESS
                 string psExe = Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
                 if (!File.Exists(psExe))
@@ -135,10 +144,6 @@ namespace PwX.Stub
 #else
 #if PWX_NO_OUTPUT
                 psi.RedirectStandardOutput = true;
-#endif
-#if PWX_UTF8_OUTPUT
-                // Turkce karakterler icin konsol cikis kod sayfasini gecici olarak UTF-8 yap
-                try { oldCp = GetConsoleOutputCP(); if (oldCp != 0) SetConsoleOutputCP(65001); } catch { }
 #endif
 #endif
                 using (Process p = Process.Start(psi))

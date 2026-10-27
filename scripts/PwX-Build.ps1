@@ -280,7 +280,7 @@ function Protect-PwXPayload {
     $outMs.WriteByte($flag)
     $outMs.Write($aes.IV, 0, $aes.IV.Length)
 
-    $keyLenBytes = [System.BitConverter]::GetBytes([ushort]$keyBytes.Length)
+    $keyLenBytes = [System.BitConverter]::GetBytes([uint16]$keyBytes.Length)
     $outMs.Write($keyLenBytes, 0, $keyLenBytes.Length)
     $outMs.Write($keyBytes, 0, $keyBytes.Length)
 
