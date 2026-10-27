@@ -17,8 +17,8 @@ Provide the PowerShell and DevOps ecosystem with the most reliable, modern, and 
 | **v1.8.0** | ✅ Completed | Payload Encryption (AES-256), DPAPI Machine Binding & Test Suite | Q4 2026 |
 | **v1.7.0** | ✅ Completed | Authenticode Code Signing, UAC Elevation Manifest Controls | Q4 2026 |
 | **v1.6.4** | ✅ Completed | Security Hardening, Path Planting Protection, Dependency Updates | Q4 2026 |
-| **v1.9.0** | 🚀 Released | In-Process Hosting, Zero-Subprocess SMA Runspaces | Q4 2026 |
-| **v2.0.0** | 📋 Planned | Cross-Platform Runtimes & .NET 10 LTS Migration | Q3 2026 / Q4 2026 |
+| **v1.9.0** | ✅ Completed | In-Process Hosting, Zero-Subprocess SMA Runspaces | Q4 2026 |
+| **v2.0.0** | 🏆 Released | Grand Final Major Release: Zero-Subprocess, Enterprise Security & 100% CI Fidelity | Q4 2026 |
 
 ---
 

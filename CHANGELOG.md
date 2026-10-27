@@ -8,6 +8,20 @@ Project: pwxe — Standalone PowerShell to EXE Build Engine
 
 ---
 
+## [2.0.0] — 2026-10-27
+
+### Added
+- **Grand Final Major Release:** Reached full maturity across the entire compilation engine with 100% CI automated test coverage.
+- **In-Process Runspace Hosting (`-HostMode InProcess` / `-InProcess`):** Zero-subprocess in-memory execution mode for Windows PowerShell 5.1 target via native `System.Management.Automation` Runspaces.
+- **Enterprise Payload Protection (`-EncryptPayload` / `-BindToMachine`):** AES-256-CBC + HMAC-SHA256 authenticated encryption (`PWXENC01`) and Windows DPAPI hardware/user machine locking.
+- **Authenticode Digital Code Signing:** Seamless RFC 3161 timestamped binary signing via `-CertificateThumbprint` or `-CertificateFile`.
+- **UAC Manifest Elevation:** Direct `asInvoker`, `requireAdministrator`, and `highestAvailable` application manifest generation.
+
+### Fixed
+- **PS5.1 Crypto Type Compatibility:** Fixed `[ushort]` to `[uint16]` in `PwX-Build.ps1` for native Windows PowerShell 5.1 type system compatibility.
+- **In-Process Console Code Page:** Initialized native console code page `SetConsoleOutputCP(65001)` and UTF-8 encoding in `Stub.cs` for In-Process mode.
+- **UTF-8 BOM Test Suite Normalization:** Normalized UTF-8 BOM encoding across test suites for deterministic execution in non-Turkish CI environments.
+
 ## [1.9.0] — 2026-10-27
 
 ### Added

@@ -3,7 +3,7 @@
 **Modern, ultra-fast and standalone PowerShell script to EXE build engine.**  
 *Convert PowerShell scripts into native Windows executables with zero external dependencies.*
 
-[![Latest Release](https://img.shields.io/badge/release-v1.9.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
+[![Latest Release](https://img.shields.io/badge/release-v2.0.0-blue.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/releases/latest)
 [![PowerShell Gallery: pwxe](https://img.shields.io/powershellgallery/v/pwxe.svg?style=flat-square&label=PSGallery)](https://www.powershellgallery.com/packages/pwxe)
 [![NuGet: pwxe](https://img.shields.io/nuget/v/pwxe.svg?style=flat-square&label=NuGet)](https://www.nuget.org/packages/pwxe)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/mtahiryilmazz/pwxe/blob/main/LICENSE)
